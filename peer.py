@@ -12,6 +12,8 @@ import select
 import logging
 import sys
 
+BUFFER_SIZE = 1024
+
 class ChatPeer:
     """
     Simple chat client that uses a name-server to lookup the address for a
@@ -19,7 +21,7 @@ class ChatPeer:
     actual chat conversation.
     """
 
-    BUFFER_SIZE = 1024
+
 
     def __init__( self
                 , name_server_ip = '127.0.0.1'
@@ -84,17 +86,39 @@ class ChatPeer:
         # Use the logger object whenever a significant event occurs (such as
         # successfully or unsuccessfully connecting with the name server).
 
-        pass
+        self.name_server_sock = socket.socket(socket.AF_INET,
+                                              socket.SOCK_STREAM)
+        self.name_server_sock.connect((self.name_server_ip,
+                                      self.name_server_port))
+        return 0
+
 
 
     def setup_client_listener(self):
         """
         Try to setup the peer to accept connections from other peers.
         """
+        
+        self.client_listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_listen_sock.bind(('127.0.0.1', self.client_listen_port))
+        self.client_listen_sock.listen(1)
+        self.client_listen_sock.setblocking(0)
+        
+    def client_accept(self):
+        try:
+            conn, addr = self.client_listen_sock.accept()
+            print "connected: ",addr
+        except Exception as e:
+
+            print("Could not connect. An error occured " + e.message);
+            return 0;        
+
+        conn.setblocking(0)
+        self.socks2names[conn] = addr
+        print "Connect from ", addr
 
         # Set the peer up to accept connections from other peers.
 
-        pass
 
 
     def run(self):
@@ -103,20 +127,36 @@ class ChatPeer:
         """
 
         running = 1
+
+        self.nickname = 'hans'
+        self.setup_client_listener()
         
         while running:
             # Print a simple prompt.
             sys.stdout.write('\n> ')
             sys.stdout.flush()
 
-            running = 0
-
             # In this loop you should:
             #
             # - Check if the name server is trying to send you a message.
             # - Check if a peer is trying to send you a message.
+            """ Check alle sockets om der ligger noget """
+            for k in self.socks2names.iterkeys():
+               try:
+                  data = k.recv(BUFFER_SIZE)
+               except Exception as e:
+                  continue
+               # Something in the socket k
+               print("something in the socket " + data)
+               self.parse_and_print(data,k)
+               
             # - Check if a new peer is trying to connect with you.
+            self.client_accept()
             # - Check if anything was entered on the keyboard.
+            msg = raw_input("Enter something: ")
+            self.parse_msg(msg)
+            
+            
 
 
     def parse_and_print(self, msg, sock):
@@ -128,6 +168,7 @@ class ChatPeer:
         # You should analyse the message and respond according to the protocol.
         # You may assume that any message that does not adhere to the protocol
         # is garbage and can be discarded.
+        pass
 
 
     def handshake_name_server(self, nickname):
@@ -143,6 +184,20 @@ class ChatPeer:
             return
         
         # Perform the handshake protocol.
+        self.name_server_sock.sendall('HELLO ' + self.nickname + ' ' + str(self.client_listen_port))
+        data = self.name_server_sock.recv(BUFFER_SIZE)
+        status, sep, rest = data.partition(' ')
+
+        if status == "100":
+            print("Handshake succesful")
+        elif status == "101":
+            print("Handshake unsuccesful: nickname taken")
+        elif status == "102":
+            print("Handshake unsuccesful: server did not receive HELLO")
+        else:
+            self.name_server_sock.close()
+            print("Handshake unsuccesful: Server returned code: " + status)
+            return status
 
 
     def handshake_peer( self
@@ -192,9 +247,12 @@ class ChatPeer:
 
             if self.setup_name_server() is 0:
                 self.connected = True
+                print("Connected to: " + parts[1] + " using port: " + parts[2])
 
                 if self.nickname is None and len(parts) == 4:
                     self.handshake_name_server(parts[3])
+                    print("Registered with: " + parts[1] + " as: " +
+                          self.nickname)
 
                 elif self.nickname is None:
                     print "Please choose a nickname and use '/register' to " \
@@ -207,6 +265,7 @@ class ChatPeer:
 
         elif parts[0] == "/nick" and len(parts) > 1:
             self.nickname = parts[1]
+            print("Your nickname is now: " + parts[1])
 
         elif parts[0] == "/register":
             self.handshake_name_server(self.nickname)
@@ -276,6 +335,7 @@ class ChatPeer:
         self.peers = {}
         self.socks2names = {}
         self.connected = False
+        pass
 
 
     def connect_to_peer(self, addr, port):
@@ -284,6 +344,7 @@ class ChatPeer:
         """
 
         # This function should return the newly created socket.
+        pass
 
     def send_private_msg(self, nick, msg):
         """
@@ -302,6 +363,8 @@ class ChatPeer:
 
         # This function should return the ip address and a port number that
         # user 'nick' can be reached at.
+
+        pass
 
             
 
