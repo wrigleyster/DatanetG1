@@ -1,3 +1,4 @@
+#!/usr/bin/python
 #
 # file: server.py
 #

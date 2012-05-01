@@ -1,5 +1,6 @@
+#!/usr/bin/python
 #
-# file: server.py
+# file: peer.py
 #
 # author: Tim van Deurzen
 #
