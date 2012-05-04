@@ -128,18 +128,18 @@ class NameServer:
         """
 
         running = 1
-
         while running:
             # This loop should:             
-            
+        
             # - Accept new connections.
             self.client_accept()
             
             # Handshaking with new connections
             for sock, addr in self.sock2address.copy().iteritems():
                 print("lets handshake!")
+
                 self.handshake(sock,addr)
-            
+        
             # - Read any socket that wants to send information.
             for sock, name in self.socks2names.iteritems():
                 print("lets see if someone is sending")
@@ -156,7 +156,6 @@ class NameServer:
                 self.parse_data(data,sock)
             
                
-            
             # - Respond to messages that are received according to the rules in
             # the protocol. Any message that does not adhere to the protocol
             # may be ignored.
@@ -168,9 +167,8 @@ class NameServer:
             #
             # HINT: Look at all the imported modules to see which functionality
             # they provide.
-
-#            running = 0
-    
+            # running = 0
+     
         # Close the server socket when exiting.
 
 
@@ -248,4 +246,9 @@ class NameServer:
 ###
 
 if __name__ == "__main__":
-    NameServer().run()
+    try:
+        NS = NameServer()
+        NS.run()
+    except KeyboardInterrupt:
+        NS.listen_sock.close()
+    
