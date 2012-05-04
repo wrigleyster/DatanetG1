@@ -87,19 +87,23 @@ class NameServer:
         """
         try:
             data  = sock.recv(NameServer.BUFFER_SIZE)
-            parts = data.split()            
+            parts = data.split()
     
             if parts[0] == "HELLO" and len(parts) >= 3:
+                print ("right command")
                 if parts[1] in self.names2info:
-                    sock.send('101 TAKEN')
+                    sock.sendall('101 TAKEN')
                     sock.close()
                 else:
-                    self.name2info[parts[1]] = (pars[2],sock,addr)
-                    self.sock2name[sock] = parts[1]
-                    sock.send('100 CONNECTED')
+                    print ("right arguments %s"% parts[2])
+                    self.names2info[parts[1]] = (parts[2],sock,addr)
+                    print ("info added")
+                    self.socks2names[sock] = parts[1]
+                    print ("registred")
+                    sock.sendall('100 CONNECTED')
             else:
-                sock.send('102 REGISTRATION REQUIRED')
-                sock.close()
+                sock.sendall('102 REGISTRATION REQUIRED')
+            print("removing from table")
             self.sock2address.remove(sock)
         except:
             return
@@ -113,7 +117,6 @@ class NameServer:
                 #conn.setblocking(0)
                 self.sock2address[conn] = addr
                 print "Connect from ", addr
-                self.handshake(conn, addr)
         except Exception as e:
             return 0
         
@@ -124,19 +127,27 @@ class NameServer:
         """
 
         running = 1
-
         while running:
-            # This loop should:
-            # 
+            # This loop should:             
+        
             # - Accept new connections.
             self.client_accept()
+        
             # Handshaking with new connections 
-            for sock, addr in self.socks2names.iteritems():
+            for sock, addr in self.sock2address.iteritems():
                 self.handshake(sock,addr)
-            
-                
+        
             # - Read any socket that wants to send information.
-            #
+            for sock, name in self.socks2names.iteritems():
+               try:
+                  data = sock.recv(BUFFER_SIZE)
+               except Exception as e:
+                  continue
+               print("something in the socket " + data)
+               self.parse_data(data,sock)
+        
+           
+        
             # - Respond to messages that are received according to the rules in
             # the protocol. Any message that does not adhere to the protocol
             # may be ignored.
@@ -148,9 +159,8 @@ class NameServer:
             #
             # HINT: Look at all the imported modules to see which functionality
             # they provide.
-
-            running = 0
-    
+            # running = 0
+     
         # Close the server socket when exiting.
 
 
@@ -225,4 +235,9 @@ class NameServer:
 ###
 
 if __name__ == "__main__":
-    NameServer().run()
+    try:
+        NS = NameServer()
+        NS.run()
+    except KeyboardInterrupt:
+        NS.listen_sock.close()
+    
