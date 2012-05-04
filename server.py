@@ -35,6 +35,7 @@ class NameServer:
         # A mapping from sockets to names.
         self.socks2names = {}
         
+        
 
         # Create a log object.
         # logging.basicConfig( filename="NameServer.log"
@@ -53,6 +54,10 @@ class NameServer:
  
         # Initialize the socket and data structures needed for the server.
         #
+        
+        # A temporary mapping from socket to address used before handshake
+        self.sock2address = {}
+        
         # Set the socket options to allow reuse of the server address and bind
         # the socket.
         
@@ -80,23 +85,38 @@ class NameServer:
         """
         Perform a handshake protocol with the new client.
         """
-
-        data = sock.recv(NameServer.BUFFER_SIZE)
-        parts = data.split()
-
+        try:
+            data  = sock.recv(NameServer.BUFFER_SIZE)
+            parts = data.split()            
+    
+            if parts[0] == "HELLO" and len(parts) >= 3:
+                if parts[1] in self.names2info:
+                    sock.send('101 TAKEN')
+                    sock.close()
+                else:
+                    self.name2info[parts[1]] = (pars[2],sock,addr)
+                    self.sock2name[sock] = parts[1]
+                    sock.send('100 CONNECTED')
+            else:
+                sock.send('102 REGISTRATION REQUIRED')
+                sock.close()
+            self.sock2address.remove(sock)
+        except:
+            return
         # Inspect the data and respond according to the protocol.
         
     def client_accept(self):
         try:
-            conn, addr = self.listen_sock.accept()
-            print "connected: ",addr
+            while 1:
+                conn, addr = self.listen_sock.accept()
+                print "connected: ",addr
+                #conn.setblocking(0)
+                self.sock2address[conn] = addr
+                print "Connect from ", addr
+                self.handshake(conn, addr)
         except Exception as e:
-#            print("Could not connect. An error occured " + e.message);
-            return 0; 
-
-        conn.setblocking(0)
-        self.socks2names[conn] = addr
-        print "Connect from ", addr
+            return 0
+        
     
     def run(self):
         """
@@ -110,6 +130,11 @@ class NameServer:
             # 
             # - Accept new connections.
             self.client_accept()
+            # Handshaking with new connections 
+            for sock, addr in self.socks2names.iteritems():
+                self.handshake(sock,addr)
+            
+                
             # - Read any socket that wants to send information.
             #
             # - Respond to messages that are received according to the rules in
