@@ -95,10 +95,10 @@ class NameServer:
                     sock.sendall('101 TAKEN')
                     sock.close()
                 else:
-                    print ("right arguments %s"% parts[2])
-#                    self.name2info[parts[1]] = (parts[2],sock,addr)
+                    print ("right arguments")
+                    self.name2info[parts[1]] = (parts[2],sock,addr)
                     print ("info added")
-#                    self.sock2name[sock] = parts[1]
+                    self.sock2name[sock] = parts[1]
                     print ("registred")
                     sock.sendall('100 CONNECTED')
             else:
@@ -238,3 +238,4 @@ class NameServer:
 
 if __name__ == "__main__":
     NameServer().run()
+    
