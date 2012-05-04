@@ -179,7 +179,7 @@ class ChatPeer:
         """
         
         parts = msg.split()            
-        elif parts[0:2] == ["MSG",name]:
+        if parts[0:2] == ["MSG",name]:
             print name,":",
             sys.stdout.write(parts[2:])
             while len(msg)==BUFFER_SIZE:
