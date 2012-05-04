@@ -87,19 +87,23 @@ class NameServer:
         """
         try:
             data  = sock.recv(NameServer.BUFFER_SIZE)
-            parts = data.split()            
+            parts = data.split()
     
             if parts[0] == "HELLO" and len(parts) >= 3:
+                print ("right command")
                 if parts[1] in self.names2info:
-                    sock.send('101 TAKEN')
+                    sock.sendall('101 TAKEN')
                     sock.close()
                 else:
-                    self.name2info[parts[1]] = (pars[2],sock,addr)
-                    self.sock2name[sock] = parts[1]
-                    sock.send('100 CONNECTED')
+                    print ("right arguments %s"% parts[2])
+#                    self.name2info[parts[1]] = (parts[2],sock,addr)
+                    print ("info added")
+#                    self.sock2name[sock] = parts[1]
+                    print ("registred")
+                    sock.sendall('100 CONNECTED')
             else:
-                sock.send('102 REGISTRATION REQUIRED')
-                sock.close()
+                sock.sendall('102 REGISTRATION REQUIRED')
+            print("removing from table")
             self.sock2address.remove(sock)
         except:
             return
@@ -113,7 +117,6 @@ class NameServer:
                 #conn.setblocking(0)
                 self.sock2address[conn] = addr
                 print "Connect from ", addr
-                self.handshake(conn, addr)
         except Exception as e:
             return 0
         
