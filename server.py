@@ -95,10 +95,10 @@ class NameServer:
                     sock.sendall('101 TAKEN')
                     sock.close()
                 else:
-                    print ("right arguments")
-                    self.name2info[parts[1]] = (parts[2],sock,addr)
+                    print ("right arguments %s"% parts[2])
+                    self.names2info[parts[1]] = (parts[2],sock,addr)
                     print ("info added")
-                    self.sock2name[sock] = parts[1]
+                    self.socks2names[sock] = parts[1]
                     print ("registred")
                     sock.sendall('100 CONNECTED')
             else:
@@ -127,17 +127,16 @@ class NameServer:
         """
 
         running = 1
-
         while running:
             # This loop should:             
-            
+        
             # - Accept new connections.
             self.client_accept()
-            
+        
             # Handshaking with new connections 
             for sock, addr in self.sock2address.iteritems():
                 self.handshake(sock,addr)
-            
+        
             # - Read any socket that wants to send information.
             for sock, name in self.socks2names.iteritems():
                try:
@@ -146,9 +145,9 @@ class NameServer:
                   continue
                print("something in the socket " + data)
                self.parse_data(data,sock)
-            
-               
-            
+        
+           
+        
             # - Respond to messages that are received according to the rules in
             # the protocol. Any message that does not adhere to the protocol
             # may be ignored.
@@ -160,9 +159,8 @@ class NameServer:
             #
             # HINT: Look at all the imported modules to see which functionality
             # they provide.
-
-#            running = 0
-    
+            # running = 0
+     
         # Close the server socket when exiting.
 
 
@@ -237,5 +235,9 @@ class NameServer:
 ###
 
 if __name__ == "__main__":
-    NameServer().run()
+    try:
+        NS = NameServer()
+        NS.run()
+    except KeyboardInterrupt:
+        NS.listen_sock.close()
     
