@@ -50,11 +50,19 @@ class NameServer:
 
         self.logger = logging.getLogger('NameServer')
 
-
+ 
         # Initialize the socket and data structures needed for the server.
         #
         # Set the socket options to allow reuse of the server address and bind
         # the socket.
+        
+        print('creating listen socket...')
+        self.listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.listen_sock.bind(('127.0.0.1',port))
+        self.listen_sock.listen(5);
+        self.listen_sock.setblocking(0)
+        print('bind to port %d'% port)
+        
 
 
     def get_info_by_name(self, name):
@@ -77,7 +85,18 @@ class NameServer:
         parts = data.split()
 
         # Inspect the data and respond according to the protocol.
+        
+    def client_accept(self):
+        try:
+            conn, addr = self.listen_sock.accept()
+            print "connected: ",addr
+        except Exception as e:
+#            print("Could not connect. An error occured " + e.message);
+            return 0; 
 
+        conn.setblocking(0)
+        self.socks2names[conn] = addr
+        print "Connect from ", addr
     
     def run(self):
         """
@@ -90,7 +109,7 @@ class NameServer:
             # This loop should:
             # 
             # - Accept new connections.
-            #
+            self.client_accept()
             # - Read any socket that wants to send information.
             #
             # - Respond to messages that are received according to the rules in
