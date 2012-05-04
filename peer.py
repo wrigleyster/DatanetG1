@@ -398,10 +398,14 @@ class ChatPeer:
         # user 'nick' can be reached at.
 
         self.name_server_sock.sendall('LOOKUP ' + nick)
+        print("trying to receive a LOOKUP request")
         data = self.name_server_sock.recv(BUFFER_SIZE)
+        print("received data from LOOKUP request")
         if not data:
+            print("No data")
             return None
         parts = data.split()
+        print(data)
         if parts[0] == "400":
             return (parts[2], parts[3])
         elif parts[0] == "404":

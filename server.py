@@ -104,7 +104,8 @@ class NameServer:
             else:
                 sock.sendall('102 REGISTRATION REQUIRED')
             print("removing from table")
-            self.sock2address.remove(sock)
+            self.sock2address.pop(sock)
+            
         except:
             return
         # Inspect the data and respond according to the protocol.
@@ -134,18 +135,25 @@ class NameServer:
             # - Accept new connections.
             self.client_accept()
             
-            # Handshaking with new connections 
-            for sock, addr in self.sock2address.iteritems():
+            # Handshaking with new connections
+            for sock, addr in self.sock2address.copy().iteritems():
+                print("lets handshake!")
                 self.handshake(sock,addr)
             
             # - Read any socket that wants to send information.
             for sock, name in self.socks2names.iteritems():
-               try:
-                  data = sock.recv(BUFFER_SIZE)
-               except Exception as e:
-                  continue
-               print("something in the socket " + data)
-               self.parse_data(data,sock)
+                print("lets see if someone is sending")
+                try:
+                    data = sock.recv(BUFFER_SIZE)
+                    if data:
+                        print("OMG, i got data :D")
+                    else:
+                        print("No data?")
+                except Exception as e:
+                    print("error while getting data")
+                    continue
+                print("something in the socket " + data)
+                self.parse_data(data,sock)
             
                
             
@@ -172,6 +180,7 @@ class NameServer:
         """
 
         info = self.get_info_by_name(nick)
+        print("lookup_nick running")
         if info:
             s, (a, _), p = info
             self.logger.info('Sending user info for %s.' % nick)
@@ -230,6 +239,8 @@ class NameServer:
             
             self.logger.info('Sending list of %d users.' % num_users)
             sock.send(msg + "\n;")
+        else: sock.send('999 ERROR Data not recognized')
+            
                 
             
 ###
