@@ -13,6 +13,8 @@ import logging
 import sys
 
 BUFFER_SIZE = 1024
+PROTOCOL_ERROR = -1
+TIMEOUT = 1
 
 class ChatPeer:
     """
@@ -36,7 +38,8 @@ class ChatPeer:
         """
 
         self.nickname = None
-        self.last_new_peer = None
+        self.bannednicks = []
+         self.last_new_peer = None
 
         self.name_server_ip = name_server_ip
         self.name_server_port = name_server_port
@@ -179,7 +182,7 @@ class ChatPeer:
         """
         
         parts = msg.split()            
-        elif parts[0:2] == ["MSG",name]:
+        if parts[0:2] == ["MSG",name]:
             print name,":",
             sys.stdout.write(parts[2:])
             while len(msg)==BUFFER_SIZE:
@@ -191,10 +194,10 @@ class ChatPeer:
             print
         elif parts[0] == "LEAVE":
             if(name == parts[1]): ## Leave only when nick belongs to issuer
-                sock.send("600 BYE\n;")
+                sock.sendall("600 BYE\n;")
                 self.disconnect(caller=False)
             else:
-                sock.send("601 ERROR\n;")
+                sock.sendall("601 ERROR\n;")
                 print name, "attempted to leave", parts[1]
         # bliver pladder ignoreret nu?
                 
@@ -221,29 +224,52 @@ class ChatPeer:
         self.name_server_sock.sendall('HELLO ' + self.nickname + ' ' + str(self.client_listen_port))
 
 
-    def handshake_peer( self
-                      , sock
-                      , addr
-                      , nick = None
-                      , port = None
-                      , caller = False
-                      ):
-
+    def handshake_peer( self, sock, addr, nick = None, 
+                        port = None, caller = False):
         """
         Perform a handshake protocol with another peer, either as the caller or
         the callee.
         """
 
         if caller:
-            # This peer is initiating the connection and should start the
-            # handshake protocol.
-            pass
+            if nick and port:
+                sock.sendall("HELLO "+nick+" "+port)
+                sock.settimeout(TIMEOUT)            ## throw TIMEOUT_ERROR
+                response = sock.recv(BUFFER_SIZE)
+                parts = response.split()
+                if parts[0:2] == ["200","CONNECTED"]:
+                    return 200
+                elif parts[0:2] == ["201","REFUSED"]:
+                    print nick,": Hi "+ self.nickname +", I really don't want to speak to your hairy ass right now."
+                    return 201
+                elif parts[0:3] == ["202","REGISTRATION","REQUIRED"]:
+                    return 202
+                elif parts[0:3] == ["203","HANDSHAKE","EXPECTED"]:
+                    return 203
+                return PROTOCOL_ERROR
+                
+            else:
+                throw Exception("Nick and/or port missing")
 
         else:
-            # We are responding to a handshake from another peer.
-            pass
+            sock.settimeout(TIMEOUT)
+            response = sock.recv(BUFFER_SIZE)
+            parts = response.split()
+            if parts[0] == "HELLO":
+                if len(parts) >= 3:
+                    if parts[1] in self.bannednicks:
+                        sock.sendall("201 REFUSED\n;")
+                        return 201
+                    elif int(parts[2])>1024:
+                        sock.sendall("200 CONNECTED\n;")
+                        return 200
+                    else:
+                        sock.sendall("203 HANDSHAKE EXPECTED")
+                        return 203
+            sock.sendall("202 REGISTRATION REQUIRED\n;")
+            return 202
 
-    
+
     def parse_msg(self, msg):
         """
         Parse the user's input and perform the associated action.
@@ -374,7 +400,10 @@ class ChatPeer:
         """
 
         # This function should return the newly created socket.
-        pass
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((addr, port))
+        return sock
 
     def send_private_msg(self, nick, msg):
         """
@@ -383,7 +412,7 @@ class ChatPeer:
 
         sock, _, _ = self.peers[nick]
 
-        sock.send('MSG %s %s\n;' % (nick, msg))
+        sock.sendall('MSG %s %s\n;' % (nick, msg))
 
     
     def get_nick_addr(self, nick):
