@@ -374,7 +374,10 @@ class ChatPeer:
         """
 
         # This function should return the newly created socket.
-        pass
+        
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((addr, port))
+        return sock
 
     def send_private_msg(self, nick, msg):
         """
