@@ -141,14 +141,14 @@ class ChatPeer:
             # - Check if the name server is trying to send you a message.
             # - Check if a peer is trying to send you a message.
             """ Check alle sockets om der ligger noget """
-            for k in self.socks2names.iterkeys():
+            for sock,name in self.socks2names.iteritems():
                try:
-                  data = k.recv(BUFFER_SIZE)
+                  data = sock.recv(BUFFER_SIZE)
                except Exception as e:
                   continue
                # Something in the socket k
                print("something in the socket " + data)
-               self.parse_and_print(data,k)
+               self.parse_and_print(data,sock,name)
                
             # - Check if a new peer is trying to connect with you.
             self.client_accept()
@@ -159,16 +159,37 @@ class ChatPeer:
             
 
 
-    def parse_and_print(self, msg, sock):
+    def parse_and_print(self, msg, sock,name):
         """
         Interpret any commands sent by peers or the name server and
         (potentially) display a message to the user.
         """
+        
+        parts = msg.split()            
+        elif parts[0:2] == ["MSG",name]:
+            print name,":",
+            sys.stdout.write(parts[2:])
+            while len(msg)==BUFFER_SIZE:
+                try:
+                    msg = sock.recv(BUFFER_SIZE)
+                    sys.stdout.write(msg)
+                except Exception as e:
+                    break
+            print
+        elif parts[0] == "LEAVE":
+            if(name == parts[1]): ## Leave only when nick belongs to issuer
+                sock.send("600 BYE\n;")
+                self.disconnect(caller=False)
+            else:
+                sock.send("601 ERROR\n;")
+                print name, "attempted to leave", parts[1]
+        # bliver pladder ignoreret nu?
+                
 
         # You should analyse the message and respond according to the protocol.
         # You may assume that any message that does not adhere to the protocol
         # is garbage and can be discarded.
-        pass
+
 
 
     def handshake_name_server(self, nickname):
