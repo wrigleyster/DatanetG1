@@ -36,6 +36,7 @@ class ChatPeer:
         """
 
         self.nickname = None
+        self.last_new_peer = None
 
         self.name_server_ip = name_server_ip
         self.name_server_port = name_server_port
@@ -274,10 +275,19 @@ class ChatPeer:
                 return 
 
             if parts[1] not in self.peers and self.connected:
-                addr, port = self.get_nick_addr(parts[1])
-
+                
                 # Connect with the peer and peform the handshake protocol.
-
+                output = self.get_nick_addr(parts[1])
+                if output:
+                    (addr, port) = output
+                    sock = self.connect_to_peer(parts[0], parts[1])
+                    if self.handshake_peer(sock, addr, parts[1], port, True) is 1:
+                        # mangler passende fejlbesked
+                        return
+                else:
+                    print("No response from server")
+                    return
+                                        
             elif not self.connected:
                 self.logger.error('Could not connect to peer because we are ' \
                                   'not connected to the name-server.')
@@ -362,7 +372,17 @@ class ChatPeer:
         # This function should return the ip address and a port number that
         # user 'nick' can be reached at.
 
-        pass
+        self.name_server_sock.sendall('LOOKUP ' + nick)
+        data = self.name_server_sock.recv(BUFFER_SIZE)
+        if not data:
+            return None
+        parts = data.split()
+        if parts[0] == "400":
+            return (parts[2], parts[3])
+        elif parts[0] == "404":
+            print("No such user registered with server")
+            return None
+        return None
 
             
 
