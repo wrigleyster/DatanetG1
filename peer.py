@@ -107,15 +107,12 @@ class ChatPeer:
     def client_accept(self):
         try:
             conn, addr = self.client_listen_sock.accept()
+            conn.setblocking(0)
+            self.socks2names[conn] = addr
             print "connected: ",addr
+            
         except Exception as e:
-
-            print("Could not connect. An error occured " + e.message);
-            return 0;        
-
-        conn.setblocking(0)
-        self.socks2names[conn] = addr
-        print "Connect from ", addr
+            pass
 
         # Set the peer up to accept connections from other peers.
 
@@ -139,7 +136,22 @@ class ChatPeer:
             # In this loop you should:
             #
             # - Check if the name server is trying to send you a message.
+            try:
+                data = self.name_server_sock.recv(BUFFER_SIZE)
+                status, sep, rest = data.partition(' ')
+                if status == "100":
+                    print("Handshake succesful")
+                elif status == "101":
+                    print("Handshake unsuccesful: nickname taken")
+                elif status == "102":
+                    print("Handshake unsuccesful: server did not receive HELLO")
+                else:
+                    self.name_server_sock.close()
+                    print("Handshake unsuccesful: Server returned code: " + status)
+            except Exception as e:
+                pass
             # - Check if a peer is trying to send you a message.
+
             """ Check alle sockets om der ligger noget """
             for sock,name in self.socks2names.iteritems():
                try:
@@ -206,19 +218,6 @@ class ChatPeer:
         
         # Perform the handshake protocol.
         self.name_server_sock.sendall('HELLO ' + self.nickname + ' ' + str(self.client_listen_port))
-        data = self.name_server_sock.recv(BUFFER_SIZE)
-        status, sep, rest = data.partition(' ')
-
-        if status == "100":
-            print("Handshake succesful")
-        elif status == "101":
-            print("Handshake unsuccesful: nickname taken")
-        elif status == "102":
-            print("Handshake unsuccesful: server did not receive HELLO")
-        else:
-            self.name_server_sock.close()
-            print("Handshake unsuccesful: Server returned code: " + status)
-            return status
 
 
     def handshake_peer( self
