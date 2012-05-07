@@ -6,19 +6,31 @@
 #
 # A class that implements a simple chat server.
 #
-
+import time ###@@@ added
 import socket
 import select
 import logging
-
-
+class PeerHandle:
+    def __init__(self,sock,ip,port=None,nick=None):
+        print "Creating peerhandle"
+        self.sock = sock
+        self.ip = ip
+        self.port = int(port) if port else None
+        self.nick = nick
+        self.scheduled_for_removal = False
+        print "created peerhandle"
+    def __str__(self):
+        return "%s on %s:%d" % (self.nick,self.ip,self.port)
+    
+BUFFER_SIZE = 1024
+    
 class NameServer:
     """
     A simple name server used to map nick names to addresses. 
     """
 
 
-    BUFFER_SIZE = 1024
+
 
 
     def __init__(self, port = 3456, listen_queue_size = 5):
@@ -28,12 +40,8 @@ class NameServer:
 
         self.port = port
 
-        # A mapping from names to the associated information (port, socket,
-        # ip address, ...).
-        self.names2info = {}
-
-        # A mapping from sockets to names.
-        self.socks2names = {}
+        # peer info stored here
+        self.peerhandles = []
         
         
 
@@ -54,10 +62,6 @@ class NameServer:
  
         # Initialize the socket and data structures needed for the server.
         #
-        
-        # A temporary mapping from socket to address used before handshake
-        self.sock2address = {}
-        
         # Set the socket options to allow reuse of the server address and bind
         # the socket.
         
@@ -70,55 +74,85 @@ class NameServer:
         
 
 
-    def get_info_by_name(self, name):
+    def get_peerhandle_by_nick(self, nick):
         """
         Get the info of a client by looking the client up by nickname.
         """
-
-        if name in self.names2info:
-            return self.names2info[name]
-
+        for ph in self.peerhandles:
+            if ph.nick == nick:
+                return ph
         return None
 
     
-    def handshake(self, sock, addr):
+    def handshake(self, peerhandle, parts):
         """
         Perform a handshake protocol with the new client.
         """
-        try:
-            data  = sock.recv(NameServer.BUFFER_SIZE)
-            parts = data.split()
-    
-            if parts[0] == "HELLO" and len(parts) >= 3:
-                print ("right command")
-                if parts[1] in self.names2info:
-                    sock.sendall('101 TAKEN')
-                    sock.close()
-                else:
-                    print ("right arguments %s"% parts[2])
-                    self.names2info[parts[1]] = (parts[2],sock,addr)
-                    print ("info added")
-                    self.socks2names[sock] = parts[1]
-                    print ("registred")
-                    sock.sendall('100 CONNECTED')
-            else:
-                sock.sendall('102 REGISTRATION REQUIRED')
-            print("removing from table")
-            self.sock2address.remove(sock)
-        except:
-            return
-        # Inspect the data and respond according to the protocol.
+        if len(parts)<3 or int(parts[2])<1024:
+            self.logger.info("From %s: Received HELLO but syntax invalid." % peerhandle.ip)
+            peerhandle.sock.sendall("102 REGISTRATION REQUIRED\n;")
+            #peerhandle.sock.close()
+            #peerhandle.scheduled_for_removal = True
+            return 102 # REGISTRATION REQUIRED
+        for ph in self.peerhandles:
+            if ph.nick == parts[1]:
+                self.logger.info("%s tried to register %s, but that nick is taken" % (peerhandle.ip,parts[1]))
+                peerhandle.sock.sendall("101 TAKEN\n;")
+                #peerhandle.sock.close()
+                #peerhandle.scheduled_for_removal = True
+                return 101 # TAKEN
+        peerhandle.nick = parts[1]
+        peerhandle.port = int(parts[2])
+        self.logger.info("Registered %s" % peerhandle)
+        peerhandle.sock.sendall("100 CONNECTED\n;")
+        return 100 # CONNECTED
+
+    def wave(self,peerhandle,parts):
+        if parts[1:2] and parts[1]!= peerhandle.nick:
+            # parts[1:2] evaluates to parts[1] if set or [] if empty
+            self.logger.info("%s tried to leave as %s" % (peerhandle,parts[1]))
+            peerhandle.sock.sendall("501 ERROR\n;")
+            return 501 # ERROR
+        peerhandle.sock.sendall("500 BYE\n;")
+        peerhandle.sock.close()
+        peerhandle.scheduled_for_removal = True
+        return 500 # BYE
+        
+    def lusers(self,peerhandle,parts):
+        self.logger.info('Request for list of users.')
+
+        # The requesting user is also in this list so we subtract 1.
+        num_users = len(self.peerhandles) - 1
+        if num_users:
+            first = True
+            msg = "300 INFO %d" % num_users
+            for ph in self.peerhandles:
+                if ph.nick == peerhandle.nick:
+                    continue
+                if not first:
+                    msg += ","
+                if first:
+                    first = False
+                msg += " %s %s %s" %(ph.nick, ph.ip, ph.port)
+            self.logger.info('Sending list of %d users.' % num_users)
+            peerhandle.sock.sendall(msg + "\n;")
+            return 300 # INFO <num peers> <info array>
+        self.logger.info('No users online save the requesting user')
+        peerhandle.sock.sendall("301 ONLY USER\n;")
+        return 301 # ONLY USER
+
         
     def client_accept(self):
         try:
-            while 1:
-                conn, addr = self.listen_sock.accept()
-                print "connected: ",addr
-                #conn.setblocking(0)
-                self.sock2address[conn] = addr
-                print "Connect from ", addr
-        except Exception as e:
-            return 0
+            conn, addr = self.listen_sock.accept()
+            ip,port = addr
+            conn.setblocking(False)
+            print "connected: ",addr
+            self.peerhandles.append(PeerHandle(conn,ip))
+            print "Connect from ", addr
+        except socket.error as e:
+            return
+        return 0
         
     
     def run(self):
@@ -132,19 +166,19 @@ class NameServer:
         
             # - Accept new connections.
             self.client_accept()
-        
-            # Handshaking with new connections 
-            for sock, addr in self.sock2address.iteritems():
-                self.handshake(sock,addr)
-        
-            # - Read any socket that wants to send information.
-            for sock, name in self.socks2names.iteritems():
-               try:
-                  data = sock.recv(BUFFER_SIZE)
-               except Exception as e:
-                  continue
-               print("something in the socket " + data)
-               self.parse_data(data,sock)
+            
+            for ph in self.peerhandles:
+                try:
+                    request = ph.sock.recv(BUFFER_SIZE)
+                except socket.error as e:
+                    continue
+                print "Received: \n%s" % request
+                self.parse_data(request,ph)
+            
+            for ph in self.peerhandles[:]:
+                if ph.scheduled_for_removal:
+                    self.peerhandles.remove(ph)
+            time.sleep(1)
         
            
         
@@ -164,72 +198,54 @@ class NameServer:
         # Close the server socket when exiting.
 
 
-    def lookup_nick(self, sock, nick):
+    def lookup_nick(self, peerhandle, nick):
         """
         Lookup a nickname and respond to the request appropriately.
         """
 
-        info = self.get_info_by_name(nick)
-        if info:
-            s, (a, _), p = info
+        info_ph = self.get_peerhandle_by_nick(nick)
+        if info_ph:
             self.logger.info('Sending user info for %s.' % nick)
-            sock.send('400 INFO %s %s\n;' % (a, p))
-        else:
-            self.logger.info('User %s not found.' % nick)
-            sock.send('404 USER NOT FOUND\n;')
+            peerhandle.sock.sendall('400 INFO %s %s\n;' % (info_ph.ip, info_ph.port))
+            return 400 # INFO <ip_addr> <port>
+        self.logger.info('User %s not found.' % nick)
+        peerhandle.sock.sendall('404 USER NOT FOUND\n;')
+        return 404 # USER NOT FOUND
 
 
-    def parse_data(self, data, sock):
+    def parse_data(self, data, peerhandle):
         """
-        Parse the incomming data and act accordingly.
+        Parse the incoming data and act accordingly.
         """
-
+        
         parts = data.split()
+        if not parts:
+            return 000 # no response
+        
+        if parts[0] == "HELLO":
+            return self.handshake(peerhandle,parts)
+        elif peerhandle.nick:
+        #elif reduce(lambda x,ph: x or ph.sock==peerhandle.sock,self.peerhandles):
+        #'- Read: elif sock in peerhandles
+            if parts[0] == "LOOKUP" and len(parts) > 1:
+                self.logger.info('Lookup requested for nick %s.' % parts[1])
+                self.lookup_nick(peerhandle, parts[1])
 
-        if parts[0] == "LOOKUP" and len(parts) > 1:
-            self.logger.info('Lookup requested for nick %s.' % parts[1])
-            self.lookup_nick(sock, parts[1])
+            elif parts[0] == "LEAVE":
+                return self.wave(peerhandle,parts)
 
-        elif parts[0] == "LEAVE":
-            if parts[1] in self.names2info.iterkeys():
-                pass
-
-                # self.logger.info('User %s disconnected from service.' \
-                #                  % parts[1])
-
-                # sock.send("500 BYE\n;")
-
-                # Remove the socket from all relevant data structures and close
-                # it.
-
-        elif parts[0] == "USERLIST":
-            self.logger.info('Request for list of users.')
-
-            # The requesting user is also in this list so we subtract 1.
-            num_users = len(self.names2info) - 1
-            first = True
-
-            msg = "300 INFO %d" % num_users
-
-            for name in self.names2info:
-                s, (ip, _), port = self.names2info[name]
-
-                if s == sock:
-                    continue
-
-                if not first:
-                    msg += ","
-
-                msg += " %s %s %s" %(name, ip, port)
-
-                if first:
-                    first = False
-
-            
-            self.logger.info('Sending list of %d users.' % num_users)
-            sock.send(msg + "\n;")
+            elif parts[0] == "USERLIST":
+                return self.lusers(peerhandle,parts)
+            else:
+                return 000 # no response
+        else:
+            self.logger.info("%s failed to register." % str(peerhandle.ip))
+            peerhandle.sock.sendall("102 REGISTRATION REQUIRED\n;")
+            #peerhandle.sock.close()
+            #peerhandle.scheduled_for_removal = True
+            return 102 # REGISTRATION REQUIRED
+                    
                 
-            
 ###
 ### Main method, run the server with all the default values.
 ###
@@ -239,5 +255,6 @@ if __name__ == "__main__":
         NS = NameServer()
         NS.run()
     except KeyboardInterrupt:
+        print "\nInterrupted, exiting..."
         NS.listen_sock.close()
     
