@@ -39,7 +39,7 @@ class ChatPeer:
 
         self.nickname = None
         self.bannednicks = []
-         self.last_new_peer = None
+        self.last_new_peer = None
 
         self.name_server_ip = name_server_ip
         self.name_server_port = name_server_port
@@ -234,7 +234,7 @@ class ChatPeer:
         if caller:
             if nick and port:
                 sock.sendall("HELLO "+nick+" "+port)
-                sock.settimeout(TIMEOUT)            ## throw TIMEOUT_ERROR
+                sock.settimeout(TIMEOUT)            ## raise TIMEOUT_ERROR
                 response = sock.recv(BUFFER_SIZE)
                 parts = response.split()
                 if parts[0:2] == ["200","CONNECTED"]:
@@ -249,7 +249,7 @@ class ChatPeer:
                 return PROTOCOL_ERROR
                 
             else:
-                throw Exception("Nick and/or port missing")
+                raise Exception("Nick and/or port missing")
 
         else:
             sock.settimeout(TIMEOUT)
