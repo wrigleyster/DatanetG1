@@ -10,6 +10,8 @@
 import socket
 import select
 import logging
+import time
+import sys
 
 
 class NameServer:
@@ -27,9 +29,10 @@ class NameServer:
         """
 
         self.port = port
+        self.counter = 0
 
-        # A mapping from names to the associated information (port, socket,
-        # ip address, ...).
+        # A mapping from names to the associated information (socket, ip,
+        # port, ...).
         self.names2info = {}
 
         # A mapping from sockets to names.
@@ -54,20 +57,14 @@ class NameServer:
  
         # Initialize the socket and data structures needed for the server.
         #
-        
-        # A temporary mapping from socket to address used before handshake
-        self.sock2address = {}
-        
-        # Set the socket options to allow reuse of the server address and bind
-        # the socket.
-        
         print('creating listen socket...')
         self.listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.listen_sock.bind(('127.0.0.1',port))
-        self.listen_sock.listen(5);
-        self.listen_sock.setblocking(0)
-        print('bind to port %d'% port)
+        self.listen_sock.bind(('',self.port))
+        self.listen_sock.listen(5)
         
+        
+        # Set the socket options to allow reuse of the server address and bind
+        # the socket.        
 
 
     def get_info_by_name(self, name):
@@ -75,10 +72,34 @@ class NameServer:
         Get the info of a client by looking the client up by nickname.
         """
 
+        print("length_______", len(self.names2info))
+        print("The data is___________", self.names2info[name])
         if name in self.names2info:
             return self.names2info[name]
 
         return None
+
+    def check_sock(self, sock, timeout):
+        i, o, e = select.select( [sock], [], [], timeout)
+        if (i):
+            return True
+        else:
+            return False
+
+    def build_line(self, counter):
+        self.counter = counter + 1
+        if counter < 0:
+            self.counter = 0
+        else:
+            if counter >= 7:
+                self.counter = 0
+            output = "-----"
+            while counter > 0:
+                output = output + " -----"
+                counter = counter - 1
+            
+            return output
+                
 
     
     def handshake(self, sock, addr):
@@ -86,40 +107,25 @@ class NameServer:
         Perform a handshake protocol with the new client.
         """
         try:
-            data  = sock.recv(NameServer.BUFFER_SIZE)
+            print("HANDSHAKING for ", sock, addr)
+            data  = sock.recv(self.BUFFER_SIZE)
             parts = data.split()
     
             if parts[0] == "HELLO" and len(parts) >= 3:
-                print ("right command")
                 if parts[1] in self.names2info:
                     sock.sendall('101 TAKEN')
                     sock.close()
-                else:
-                    print ("right arguments %s"% parts[2])
-                    self.names2info[parts[1]] = (parts[2],sock,addr)
-                    print ("info added")
+                else:                    
                     self.socks2names[sock] = parts[1]
-                    print ("registred")
+                    print ("HANDSHAKE accepted for ", parts[1])
+                    self.names2info[parts[1]] = (sock, addr, parts[2])
                     sock.sendall('100 CONNECTED')
             else:
                 sock.sendall('102 REGISTRATION REQUIRED')
-            print("removing from table")
-            self.sock2address.pop(sock)
             
         except:
             return
         # Inspect the data and respond according to the protocol.
-        
-    def client_accept(self):
-        try:
-            while 1:
-                conn, addr = self.listen_sock.accept()
-                print "connected: ",addr
-                #conn.setblocking(0)
-                self.sock2address[conn] = addr
-                print "Connect from ", addr
-        except Exception as e:
-            return 0
         
     
     def run(self):
@@ -129,32 +135,45 @@ class NameServer:
 
         running = 1
         while running:
+            
+            sys.stdout.write('\n> ')
+            sys.stdout.flush()
+            
             # This loop should:             
         
             # - Accept new connections.
-            self.client_accept()
             
+            if self.check_sock(self.listen_sock, 1):
+                sock, addr = self.listen_sock.accept()
+                if sock:
+                    print("Getting CONNECTION from ", addr)
+                    self.handshake(sock, addr)
+            else:
+                print("No new CONNECTIONS")
+            time.sleep(1)
             # Handshaking with new connections
-            for sock, addr in self.sock2address.copy().iteritems():
-                print("lets handshake!")
-
-                self.handshake(sock,addr)
         
             # - Read any socket that wants to send information.
-            for sock, name in self.socks2names.iteritems():
-                print("lets see if someone is sending")
-                try:
-                    data = sock.recv(BUFFER_SIZE)
-                    if data:
-                        print("OMG, i got data :D")
+            print("socks2names LENGTH: ", len(self.socks2names))
+
+            i, o, e = select.select( self.socks2names.iterkeys(), [], [], 1)
+            if (i):
+                for sock in i:                            
+                    print("checking for DATA")
+                    data = sock.recv(self.BUFFER_SIZE)
+                    if data != '':
+                        print("OMG, i got data: ", data)
+                        self.parse_data(data,sock)
                     else:
-                        print("No data?")
-                except Exception as e:
-                    print("error while getting data")
-                    continue
-                print("something in the socket " + data)
-                self.parse_data(data,sock)
-            
+                        print("Warning: received '', socket probably dead")
+                        self.names2info.pop(self.socks2names[sock])
+                        self.socks2names.pop(sock)
+            else:
+                print("No new MESSAGES in socks2names")
+
+            time.sleep(1)                
+            print("Sleeping 2 sec and LOOPING " + self.build_line(self.counter))
+            time.sleep(2)
                
             # - Respond to messages that are received according to the rules in
             # the protocol. Any message that does not adhere to the protocol
@@ -181,7 +200,9 @@ class NameServer:
         print("lookup_nick running")
         if info:
             s, (a, _), p = info
+            print("logging info")
             self.logger.info('Sending user info for %s.' % nick)
+            print('400 INFO %s %s\n;' % (a, p))
             sock.send('400 INFO %s %s\n;' % (a, p))
         else:
             self.logger.info('User %s not found.' % nick)
