@@ -109,11 +109,17 @@ class ChatPeer:
         """
         Try to setup the peer to accept connections from other peers.
         """
-        
-        self.client_listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.client_listen_sock.bind(('127.0.0.1', self.client_listen_port))
-        self.client_listen_sock.listen(self.listen_queue_size)
-        
+
+        while True:            
+            try:
+                self.client_listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self.client_listen_sock.bind(('127.0.0.1', self.client_listen_port))
+                self.client_listen_sock.listen(self.listen_queue_size)
+                break
+            except socket.error:
+                self.client_listen_port = self.client_listen_port + 1
+                print("Port in use. Switching to ", self.client_listen_port)
+                continue
 
         # Set the peer up to accept connections from other peers.      
 
@@ -126,14 +132,7 @@ class ChatPeer:
 
         running = 1
 
-        while True:            
-            try:
-                self.setup_client_listener()
-                break
-            except socket.error:
-                self.client_listen_port = self.client_listen_port + 1
-                print("Port in use. Switching to ", self.client_listen_port)
-                continue
+        self.setup_client_listener()
         self.name_server_sock = socket.socket(socket.AF_INET,
                                               socket.SOCK_STREAM)
         
@@ -158,12 +157,13 @@ class ChatPeer:
             # - Check if a peer is trying to send you a message.
 
             """ Check alle sockets om der ligger noget """
-            for sock, name in self.socks2names.copy().iteritems():
-                if self.check_sock(sock):
-                    data = self.get_data(sock)
+            i, o, e = select.select(self.socks2names.copy().iterkeys(), [], [], 1)
+            if i:
+                for ready_sock in i:
+                    data = self.get_data(ready_sock)
                     if data:
                         print("A PEER sent: " + data)
-                        self.parse_and_print(data, sock)
+                        self.parse_and_print(data, ready_sock)
                
                
             # - Check if a new peer is trying to connect with you.
@@ -185,7 +185,7 @@ class ChatPeer:
                         conn.close()
                     
             # - Check if anything was entered on the keyboard.
-            print("Press a key to INTERRUPT, proceeding in " + str(self.INPUT_TIMEOUT) + " seconds")
+            print("Press ENTER to input, loopin in " + str(self.INPUT_TIMEOUT) + " seconds")
 
             i, o, e = select.select( [sys.stdin], [], [], self.INPUT_TIMEOUT )
             if (i):
@@ -447,8 +447,9 @@ class ChatPeer:
 
         # Acquire a list of users from the name server and send the message to
         # all users.
-
         pass
+
+
 
 
     def disconnect(self):
