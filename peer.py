@@ -447,7 +447,47 @@ class ChatPeer:
 
         # Acquire a list of users from the name server and send the message to
         # all users.
-        pass
+        if self.connected:
+            print("Trying to broadcast: ", msg)
+            self.name_server_sock.sendall("USERLIST")
+            i, o, e = select.select( [self.name_server_sock], [], [], 10 )
+            if i:
+                data = self.name_server_sock.recv(self.BUFFER_SIZE)
+                print("server sent USERLIST: ", data)
+                parts = data.split()
+                if parts[0] == "300" and len(parts) > 3:
+                    pointer = 3
+                    loops_remaining = int(parts[2])
+                    while loops_remaining > 0:
+                        print("loops_remaning is: ", loops_remaining)
+                        print("while number: " + str((pointer)/3))
+                        nick = parts[pointer]
+                        print("nick is: ", nick)
+                        if nick in self.peers:
+                            self.send_private_msg(nick, msg)
+                        else:
+                            ip = parts[pointer + 1]
+                            print("ip is: ", ip)
+                            temp = parts[pointer + 2].split(',')
+                            port = int(temp[0])
+                            print("port is: ", port)
+                            sock = self.connect_to_peer(ip, port)
+                            print("sock is: ", sock)
+                            if sock and (self.handshake_peer(sock, ip, nick, port, True) is 0):
+                                self.send_private_msg(nick, msg)
+                        pointer = pointer + 3
+                        loops_remaining = loops_remaining - 1
+                        
+                        
+                elif parts[0] == "301":
+                    print("There are no other users registered with the nameserver")
+                else:
+                    print("Unexpected response from server: ", data)
+                    self.parse_and_print(data)
+            else:
+                print("Response from server timed out. The server may be offline")
+        else:
+            print("Please connect to the nameser before broadcasting")
 
 
 
@@ -459,11 +499,15 @@ class ChatPeer:
         
         # For all of the sockets currently active, except STDIN and our listening
         # socket perform the LEAVE protocol.
+        print("Disconnecting")
+        for sock, nick in self.socks2names:
+            self.parse_msg("/leave " + nick)
+            sock.close()
+        self.name_server_sock.close()
 
         self.peers = {}
         self.socks2names = {}
         self.connected = False
-        pass
 
 
     def connect_to_peer(self, addr, port):
@@ -552,9 +596,15 @@ class ChatPeer:
 ###
 
 if __name__ == "__main__":
-    if len(sys.argv) > 1:
-        # Interpret the first command-line argument as the port number this
-        # peer will listen on.
-        ChatPeer(client_listen_port = int(sys.argv[1])).run()
-    else:
-        ChatPeer().run()
+    try:
+        if len(sys.argv) > 1:
+            # Interpret the first command-line argument as the port number this
+            # peer will listen on.
+            CP = ChatPeer(client_listen_port = int(sys.argv[1]))
+            CP.run()
+        else:
+            CP = ChatPeer()
+            CP.run()
+    except KeyboardInterrupt:
+        CP.disconnect()
+        CP.client_listen_sock.close()
