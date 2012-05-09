@@ -72,45 +72,21 @@ class NameServer:
         Get the info of a client by looking the client up by nickname.
         """
 
-        print("length_______", len(self.names2info))
-        print("The data is___________", self.names2info[name])
         if name in self.names2info:
             return self.names2info[name]
 
-        return None
-
-    def check_sock(self, sock, timeout):
-        i, o, e = select.select( [sock], [], [], timeout)
-        if (i):
-            return True
-        else:
-            return False
-
-    def build_line(self, counter):
-        self.counter = counter + 1
-        if counter < 0:
-            self.counter = 0
-        else:
-            if counter >= 7:
-                self.counter = 0
-            output = "-----"
-            while counter > 0:
-                output = output + " -----"
-                counter = counter - 1
-            
-            return output
-                
+        return None             
 
     
     def handshake(self, sock, addr):
         """
         Perform a handshake protocol with the new client.
         """
-        try:
-            print("HANDSHAKING for ", sock, addr)
-            data  = sock.recv(self.BUFFER_SIZE)
+        print("HANDSHAKING for ", sock, addr)
+        data  = self.get_data(sock)
+        if data:
             parts = data.split()
-    
+            
             if parts[0] == "HELLO" and len(parts) >= 3:
                 if parts[1] in self.names2info:
                     sock.sendall('101 TAKEN')
@@ -122,9 +98,7 @@ class NameServer:
                     sock.sendall('100 CONNECTED')
             else:
                 sock.sendall('102 REGISTRATION REQUIRED')
-            
-        except:
-            return
+
         # Inspect the data and respond according to the protocol.
         
     
@@ -143,20 +117,19 @@ class NameServer:
         
             # - Accept new connections.
             
-            if self.check_sock(self.listen_sock, 1):
+            if self.check_sock(self.listen_sock):
                 sock, addr = self.listen_sock.accept()
                 if sock:
                     print("Getting CONNECTION from ", addr)
                     self.handshake(sock, addr)
             else:
                 print("No new CONNECTIONS")
-            time.sleep(1)
             # Handshaking with new connections
         
             # - Read any socket that wants to send information.
             print("socks2names LENGTH: ", len(self.socks2names))
 
-            i, o, e = select.select( self.socks2names.iterkeys(), [], [], 1)
+            i, o, e = select.select( self.socks2names.iterkeys(), [], [], 3)
             if (i):
                 for sock in i:                            
                     print("checking for DATA")
@@ -170,10 +143,13 @@ class NameServer:
                         self.socks2names.pop(sock)
             else:
                 print("No new MESSAGES in socks2names")
-
-            time.sleep(1)                
-            print("Sleeping 2 sec and LOOPING " + self.build_line(self.counter))
-            time.sleep(2)
+            countdown = 25
+            while countdown > 0:
+                print("LOOPING in " + str(countdown) + " seconds")
+                countdown = countdown - 1
+                time.sleep(1)
+               
+            print("LOOPING " + self.build_line(self.counter))
                
             # - Respond to messages that are received according to the rules in
             # the protocol. Any message that does not adhere to the protocol
@@ -259,6 +235,47 @@ class NameServer:
             self.logger.info('Sending list of %d users.' % num_users)
             sock.send(msg + "\n;")
         else: sock.send('999 ERROR Data not recognized')
+
+    def cleanup_lists(self, sock):
+        try:
+            self.self.names2info.pop(self.socks2names[sock])
+        except Exception as e:
+            print("Error cleaning up names2info: ", e)
+        try:
+            self.self.socks2names.pop(sock)
+        except Exception as e:
+            print("Error cleaning up socks2names: ", e)
+
+    def get_data(self, sock):
+        try:
+            data = sock.recv(self.BUFFER_SIZE)
+            if data:
+                return data
+            else:
+                return None
+        except Exception as e:
+            return None
+
+    def check_sock(self, sock):
+        i, o, e = select.select([sock], [], [], 1)
+        if (i):
+            return True
+        else:
+            return False
+
+    def build_line(self, counter):
+        self.counter = counter + 1
+        if counter < 0:
+            self.counter = 0
+        else:
+            if counter >= 7:
+                self.counter = 0
+            output = "-----"
+            while counter > 0:
+                output = output + " -----"
+                counter = counter - 1
+            
+            return output
             
                 
             
