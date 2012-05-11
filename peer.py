@@ -139,9 +139,11 @@ class ChatPeer:
             #
             # - Check if the name server is trying to send you a message.
             if self.connected:
-                data = self.get_data(self.name_server_sock, True, self.TIMEOUT_S)
+                data = self.get_data(self.name_server_sock, True, 1)
                 if data:
                     self.parse_and_print(data, self.name_server_sock)
+            else:
+                time.sleep(1) #to avoid high cpu usage
                 
             # - Check if a peer is trying to send you a message.
 
@@ -181,7 +183,6 @@ class ChatPeer:
                 msg = raw_input("Enter Command now: ")
                 if len(msg) > 0:
                     self.parse_msg(msg)
-            time.sleep(1)
             
 
 

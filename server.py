@@ -164,7 +164,7 @@ class NameServer:
             # This loop should:             
         
             # - Accept new connections.
-            self.client_accept(self.CLIENT_TIMEOUT)
+            self.client_accept(1)
             
             for ph in self.peerhandles:
                 try:
@@ -186,7 +186,6 @@ class NameServer:
             for ph in self.peerhandles[:]:
                 if ph.scheduled_for_removal:
                     self.peerhandles.remove(ph)
-            time.sleep(1)
         
            
         
