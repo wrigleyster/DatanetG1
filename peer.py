@@ -45,9 +45,9 @@ class ChatPeer:
         self.listen_queue_size = listen_queue_size
         self.client_listen_sock = None
 
-        self.INPUT_TIMEOUT = 5
         self.BUFFER_SIZE = 1024
-        self.verbose_mode = True
+        self.TIMEOUT_S = 0
+        self.TIMEOUT_L = 10
 
         # Mapping from peer nicknames to their connection information.
         self.peers = {}
@@ -56,7 +56,7 @@ class ChatPeer:
         self.socks2names = {}
         self.socks2address = {}
     
-        self.socks2names[sys.stdin] = "stdin"
+        #self.socks2names[sys.stdin] = "stdin"
 
         # Create a log object.
         logging.basicConfig( filename="ChatPeer.log"
@@ -98,13 +98,6 @@ class ChatPeer:
         except Exception as e:
             return 1
 
-    def check_sock(self, sock):
-        i, o, e = select.select([sock], [], [], 1)
-        if (i):
-            return True
-        else:
-            return False
-
     def setup_client_listener(self):
         """
         Try to setup the peer to accept connections from other peers.
@@ -131,6 +124,7 @@ class ChatPeer:
         """
 
         running = 1
+        userinput_help = True
 
         self.setup_client_listener()
         self.name_server_sock = socket.socket(socket.AF_INET,
@@ -138,62 +132,56 @@ class ChatPeer:
         
         while running:
             # Print a simple prompt.
-            sys.stdout.write('\n> ')
-            sys.stdout.flush()
+            #sys.stdout.write('\n> ')
+            #sys.stdout.flush()
 
             # In this loop you should:
             #
             # - Check if the name server is trying to send you a message.
             if self.connected:
-                if self.check_sock(self.name_server_sock):
-                    data = self.get_data(self.name_server_sock)
-                    if data:
-                        self.parse_and_print(data, self.name_server_sock)
-                elif self.verbose_mode:
-                    print("Nothing new from SERVER")
-            elif self.verbose_mode:
-                print("You are not connected to the NAMESERVER")
+                data = self.get_data(self.name_server_sock, True, self.TIMEOUT_S)
+                if data:
+                    self.parse_and_print(data, self.name_server_sock)
                 
             # - Check if a peer is trying to send you a message.
 
             """ Check alle sockets om der ligger noget """
-            i, o, e = select.select(self.socks2names.copy().iterkeys(), [], [], 1)
-            if i:
-                for ready_sock in i:
-                    data = self.get_data(ready_sock)
-                    if data:
-                        print("A PEER sent: " + data)
-                        self.parse_and_print(data, ready_sock)
+            for sock in self.socks2names.copy().iterkeys():
+                data = self.get_data(sock, True, self.TIMEOUT_S)
+                if data:
+                    self.parse_and_print(data, sock)
                
                
             # - Check if a new peer is trying to connect with you.
-            if self.check_sock(self.client_listen_sock):
+            i, o, e = select.select([self.client_listen_sock], [], [], self.TIMEOUT_S)
+            if i:
                 conn, addr = self.client_listen_sock.accept()
                 if conn:
                     print("PEER connected from: ", addr)
                     self.socks2address[conn] = addr
                     print("Waiting for HANDSHAKE")
-                    i, o, e = select.select([conn], [], [], 10)
-                    if i:
-                        data = self.get_data(conn)
-                        if data:
-                            self.parse_and_print(data, conn)
+                    data = self.get_data(conn, True, self.TIMEOUT_L)
+                    if data:
+                        self.parse_and_print(data, conn)
                     else:
-                        print("No HANDSHAKE received, moving on")
+                        print("HANDSHAKE timed out")
                         conn.sendall("201 REFUSED")
                         self.cleanup_lists(conn)
                         conn.close()
                     
             # - Check if anything was entered on the keyboard.
-            print("Press ENTER to input, loopin in " + str(self.INPUT_TIMEOUT) + " seconds")
+            if userinput_help:
+                print("Press ENTER to input")
+                """ Eller ANY key :-) """
+                userinput_help = False
 
-            i, o, e = select.select( [sys.stdin], [], [], self.INPUT_TIMEOUT )
+            i, o, e = select.select( [sys.stdin], [], [], self.TIMEOUT_S )
             if (i):
                 sys.stdin.readline().strip()
                 msg = raw_input("Enter Command now: ")
-                self.parse_msg(msg)
-            elif self.verbose_mode:
-                print "No input, looping"
+                if len(msg) > 0:
+                    self.parse_msg(msg)
+            time.sleep(1)
             
 
 
@@ -215,14 +203,18 @@ class ChatPeer:
                 self.cleanup_lists(sock)
                 sock.close()
             elif parts[0] == "202":
-                print("A PEER expected a HANDSHAKE :", data)
+                print("A PEER expected a HANDSHAKE")
             elif parts[0] == "203":
-                print("A PEER expected a HANDSHAKE, but received too few arguments: ", data)
+                print("A PEER expected a HANDSHAKE, but received too few arguments")
+            elif parts[0] == "500":
+                print("Server says BYE")
+            elif parts[0] == "501":
+                print("The nameserver did not know the nickname")
             elif parts[0] == "600":
-                print(self.socks2names[sock] + " says BYE, closing connection")
-                self.cleanup_lists(sock)
-                sock.close()
-            elif parts[0] == "HELLO" and len(parts):
+                print(self.socks2names[sock] + " has closed the connection")
+            elif parts[0] == "601":
+                print("The username was not registered with " + self.socks2names[sock])
+            elif parts[0] == "HELLO":
                 if len(parts) > 2:
                     self.handshake_peer(sock, self.socks2address[sock], parts[1], parts[2], False)
                 else:
@@ -230,7 +222,7 @@ class ChatPeer:
                     sock.sendall("203 HANDSHAKE EXPECTED")
                     self.socks2address.pop(sock)
                     sock.close()
-            elif parts[0] == "MSG":
+            elif parts[0] == "MSG" and len(parts) > 1:
                 if self.socks2names[sock] in self.peers:
                     print(self.socks2names[sock] + ": " + self.concat_string(parts[2:]))
                 else:
@@ -238,13 +230,15 @@ class ChatPeer:
                     sock.sendall("202 REGISTRATION REQUIRED")
             elif parts[0] == "LEAVE" and len(parts) > 1:
                 if parts[1] in self.peers:
-                    print("PEER " + parts[1] + " wants to LEAVE")
+                    print(parts[1] + " disconnected")
                     sock.sendall("600 BYE")
                     self.cleanup_lists(sock)
                     sock.close()
                 else:
                     print("Got a leave request for unknown PEER " + parts[1])
                     sock.sendall("601 ERROR")
+            else:
+                print("Unknown response: ", msg)
         else:
             print("WARNING: received empty string in parse_and_print")
             self.cleanup_lists(sock)
@@ -292,7 +286,7 @@ class ChatPeer:
             # This peer is initiating the connection and should start the
             # handshake protocol.
             sock.sendall('HELLO ' + self.nickname + ' ' + str(self.client_listen_port))
-            data = self.get_data(sock)
+            data = self.get_data(sock, True, self.TIMEOUT_L)
             if data:
                 parts = data.split()
                 if parts[0] == "200":
@@ -301,8 +295,9 @@ class ChatPeer:
                     print("Succesfully connected to ", nick)
                     return 0
                 else:
-                    self.parse_and_print(data, sock)
+                    return 1
             else:
+                print("HANDSHAKE with PEER timed out")
                 return 1
             # We are responding to a handshake from another peer.
             
@@ -329,6 +324,7 @@ class ChatPeer:
                 
                 # Close the connection with the name server.
                 self.name_server_sock.close()
+                self.connected = False
 
             # Get the hostname and port number from the commandline entered by
             # the user.
@@ -355,7 +351,7 @@ class ChatPeer:
 
         elif parts[0] == "/nick" and len(parts) > 1:
             self.nickname = parts[1]
-            print("Your nickname is now: " + parts[1])
+            print("Your nickname is now " + parts[1])
 
         elif parts[0] == "/register":
             self.handshake_name_server(self.nickname)
@@ -376,10 +372,9 @@ class ChatPeer:
                     print("Received socket: ", sock)
                     if self.handshake_peer(sock, addr, parts[1], int(port), True) is 1:
                         print("HANDSHAKE failed with PEER", parts[1])
-                        # mangler passende fejlbesked
                         return
                     else:
-                        print("HANDSHAKE ok with PEER", parts[1])
+                        print("Successfully HANDSHAKED with " + parts[1])
                 else:
                     return
                                         
@@ -396,7 +391,7 @@ class ChatPeer:
         elif parts[0] == "/all" and len(parts) > 1:
             self.broadcast(' '.join(parts[1:]))
         
-        elif parts[0] == "/leave" and len(parts) == 1:
+        elif parts[0] == "/leave":
             self.disconnect()
 
         elif parts[0] == "/quit":
@@ -405,6 +400,7 @@ class ChatPeer:
             self.disconnect()
             sys.exit(0)
 
+        
         elif parts[0] == "/auto":
             if self.setup_name_server() is 0:
                 self.connected = True
@@ -412,19 +408,7 @@ class ChatPeer:
                 self.handshake_name_server(self.nickname)
             else:
                 print("Connection to server failed. It may be offline or port is in use")
-        elif parts[0] == "/verbose":
-            if parts[1] == "on":
-                self.verbose_mode = True
-            elif parts[1] == "off":
-                self.verbose_mode = False
-            else:
-                print("Format is /verbose on/off")
-        elif parts[0] == "/leave" and len(parts) > 1:
-            if parts[1] in self.peers:
-                sock, addr, port = self.peers[parts[1]]
-                sock.sendall("LEAVE " + self.nickname)
-            else:
-                print(parts[1] + " is not a PEER")
+
                 
                 
             
@@ -435,7 +419,7 @@ class ChatPeer:
             # we make normal messages broadcasts.
             
             if self.connected:
-                pass
+                self.parse_msg("/all " + msg)
             else:
                 print "Not connected!"
 
@@ -448,44 +432,31 @@ class ChatPeer:
         # Acquire a list of users from the name server and send the message to
         # all users.
         if self.connected:
-            print("Trying to broadcast: ", msg)
             self.name_server_sock.sendall("USERLIST")
-            i, o, e = select.select( [self.name_server_sock], [], [], 10 )
-            if i:
-                data = self.name_server_sock.recv(self.BUFFER_SIZE)
-                print("server sent USERLIST: ", data)
+            data = self.get_data(self.name_server_sock, True, self.TIMEOUT_L)
+            if data:
                 parts = data.split()
                 if parts[0] == "300" and len(parts) > 3:
                     pointer = 3
                     loops_remaining = int(parts[2])
                     while loops_remaining > 0:
-                        print("loops_remaning is: ", loops_remaining)
-                        print("while number: " + str((pointer)/3))
                         nick = parts[pointer]
-                        print("nick is: ", nick)
                         if nick in self.peers:
                             self.send_private_msg(nick, msg)
                         else:
                             ip = parts[pointer + 1]
-                            print("ip is: ", ip)
                             temp = parts[pointer + 2].split(',')
                             port = int(temp[0])
-                            print("port is: ", port)
                             sock = self.connect_to_peer(ip, port)
-                            print("sock is: ", sock)
                             if sock and (self.handshake_peer(sock, ip, nick, port, True) is 0):
                                 self.send_private_msg(nick, msg)
                         pointer = pointer + 3
-                        loops_remaining = loops_remaining - 1
-                        
+                        loops_remaining = loops_remaining - 1                        
                         
                 elif parts[0] == "301":
                     print("There are no other users registered with the nameserver")
                 else:
-                    print("Unexpected response from server: ", data)
-                    self.parse_and_print(data)
-            else:
-                print("Response from server timed out. The server may be offline")
+                    print("Unexpected response from server: ", data)      
         else:
             print("Please connect to the nameser before broadcasting")
 
@@ -496,17 +467,29 @@ class ChatPeer:
         """
         Disconnect from the name server and all peers.
         """
-        
+        print("Disconnecting")
         # For all of the sockets currently active, except STDIN and our listening
         # socket perform the LEAVE protocol.
-        print("Disconnecting")
-        for sock, nick in self.socks2names:
-            self.parse_msg("/leave " + nick)
-            sock.close()
+        for sock, nick in self.socks2names.copy().iteritems():
+            sock.sendall("LEAVE " + self.nickname)
+            data = self.get_data(sock, True, self.TIMEOUT_L)
+            if data:
+                self.parse_and_print(data, sock)
+                sock.close()
+            else:
+                print("Response from " + nick + " timed out")
+                sock.close()
+        self.name_server_sock.sendall("LEAVE " + self.nickname)
+        data = self.get_data(self.name_server_sock, True, self.TIMEOUT_L)
+        if data:
+            self.parse_and_print(data, self.name_server_sock)
+        else:
+            print("Response from nameserver timed out")
         self.name_server_sock.close()
 
         self.peers = {}
         self.socks2names = {}
+        self.socks2address = {}
         self.connected = False
 
 
@@ -539,21 +522,22 @@ class ChatPeer:
         # This function should return the ip address and a port number that
         # user 'nick' can be reached at.
 
+        print("Getting user info for " + nick)
         self.name_server_sock.sendall('LOOKUP ' + nick)
-        data = self.name_server_sock.recv(self.BUFFER_SIZE)
-        print("received data from LOOKUP request")
-        if not data:
-            print("No response from server or timeout")
+        data = self.get_data(self.name_server_sock, True, self.TIMEOUT_L)
+        if data:
+            print("Server sent this info for " + nick + ":", data)
+            parts = data.split()
+            if parts[0] == "400":
+                return (parts[2], parts[3])
+            elif parts[0] == "404":
+                print(nick + " is not registered with the nameserver")
+                return None
+            print("Unkown response from server: ", data)
             return None
-        parts = data.split()
-        if parts[0] == "400":
-            print("Peer found, trying to connect")
-            return (parts[2], parts[3])
-        elif parts[0] == "404":
-            print("No such user registered with server")
+        else:
+            print("LOOKUP timed out")
             return None
-        print("Unkown response from server: ", data)
-        return None
     
     def concat_string(self, string_list):
         max = len(string_list)
@@ -578,15 +562,32 @@ class ChatPeer:
         except Exception as e:
             print("Error cleaning up socks2names: ", e)
 
-    def get_data(self, sock):
-        try:
-            data = sock.recv(self.BUFFER_SIZE)
-            if data:
-                return data
-            else:
+
+    def get_data(self, sock, use_timeout, timeout):
+        if use_timeout:
+            i, o, e = select.select([sock], [], [], timeout)
+            if e:
+                print("Error in a socket, closing it")
+                self.cleanup_lists(e[0])
+                e[0].close()
+            elif i:
+                try:
+                    data = sock.recv(self.BUFFER_SIZE)
+                    if data:
+                        return data
+                    else:
+                        return None
+                except Exception as e:
+                    return None
+        else:   
+            try:
+                data = sock.recv(self.BUFFER_SIZE)
+                if data:
+                    return data
+                else:
+                    return None
+            except Exception as e:
                 return None
-        except Exception as e:
-            return None
         
 
             
