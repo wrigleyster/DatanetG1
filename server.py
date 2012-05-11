@@ -10,6 +10,7 @@ import time ###@@@ added
 import socket
 import select
 import logging
+
 class PeerHandle:
     def __init__(self,sock,ip,port=None,nick=None):
         print "Creating peerhandle"
@@ -26,25 +27,23 @@ BUFFER_SIZE = 1024
     
 class NameServer:
     """
-    A simple name server used to map nick names to addresses. 
+    A simple name server used to map nick names to addresses.
     """
-
-
-
-
-
+    
     def __init__(self, port = 3456, listen_queue_size = 5):
         """
         Initialize the variables required by the name server.
         """
 
         self.port = port
+        self.CLIENT_TIMEOUT = 0 #client timeout for sockets
 
         # peer info stored here
         self.peerhandles = []
         
         
 
+            
         # Create a log object.
         # logging.basicConfig( filename="NameServer.log"
         #                    , level=logging.DEBUG
@@ -69,7 +68,6 @@ class NameServer:
         self.listen_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.listen_sock.bind(('127.0.0.1',port))
         self.listen_sock.listen(5);
-        self.listen_sock.setblocking(0)
         print('bind to port %d'% port)
         
 
@@ -142,17 +140,18 @@ class NameServer:
         return 301 # ONLY USER
 
         
-    def client_accept(self):
-        try:
-            conn, addr = self.listen_sock.accept()
-            ip,port = addr
-            conn.setblocking(False)
-            print "connected: ",addr
-            self.peerhandles.append(PeerHandle(conn,ip))
-            print "Connect from ", addr
-        except socket.error as e:
-            return
-        return 0
+    def client_accept(self, timeout):
+        i , o, e = select.select([self.listen_sock], [], [], timeout)
+        if i:
+            try:
+                conn, addr = self.listen_sock.accept()
+                ip,port = addr
+                print "connected: ",addr
+                self.peerhandles.append(PeerHandle(conn,ip))
+                print "Connect from ", addr
+            except socket.error as e:
+                return
+            return 0
         
     
     def run(self):
@@ -165,15 +164,24 @@ class NameServer:
             # This loop should:             
         
             # - Accept new connections.
-            self.client_accept()
+            self.client_accept(self.CLIENT_TIMEOUT)
             
             for ph in self.peerhandles:
                 try:
-                    request = ph.sock.recv(BUFFER_SIZE)
+                    sock = self.check_sock(ph, self.CLIENT_TIMEOUT)
+                    if sock:
+                        request = ph.sock.recv(BUFFER_SIZE)
+                        if request == "":
+                            print("Warning: a socket contained an empty string, closing it now")
+                            sock.close()
+                            self.peerhandles.remove(ph)
+                        else:
+                            print "Received: \n%s" % request
+                            self.parse_data(request,ph)
                 except socket.error as e:
-                    continue
-                print "Received: \n%s" % request
-                self.parse_data(request,ph)
+                    print("Error in socket from ", ph.nick)
+                    continue                
+                
             
             for ph in self.peerhandles[:]:
                 if ph.scheduled_for_removal:
@@ -244,6 +252,18 @@ class NameServer:
             #peerhandle.sock.close()
             #peerhandle.scheduled_for_removal = True
             return 102 # REGISTRATION REQUIRED
+
+    def check_sock(self, peerhandle, timeout):
+        i, o, e = select.select([peerhandle.sock], [], [], timeout)
+        if e:
+            print("Error in a socket, closing it")
+            e[0].close
+            self.peerhandles.remove(peerhandle)
+            return None
+        elif (i):
+            return i[0]
+        else:
+            return None
                     
                 
 ###
