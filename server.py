@@ -29,7 +29,7 @@ class NameServer:
     """
     A simple name server used to map nick names to addresses.
     """
-    
+
     def __init__(self, port = 3456, listen_queue_size = 5):
         """
         Initialize the variables required by the name server.
@@ -164,6 +164,7 @@ class NameServer:
             # This loop should:             
         
             # - Accept new connections.
+
             self.client_accept(1)
             
             for ph in self.peerhandles:
@@ -252,6 +253,7 @@ class NameServer:
             #peerhandle.scheduled_for_removal = True
             return 102 # REGISTRATION REQUIRED
 
+
     def check_sock(self, peerhandle, timeout):
         i, o, e = select.select([peerhandle.sock], [], [], timeout)
         if e:
@@ -263,6 +265,7 @@ class NameServer:
             return i[0]
         else:
             return None
+
                     
                 
 ###
