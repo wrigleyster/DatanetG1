@@ -47,7 +47,7 @@ class NameServer:
         # Create a log object.
         # logging.basicConfig( filename="NameServer.log"
         #                    , level=logging.DEBUG
-        #                    , format = '[%(asctime)s] %(levelname)s: %(message)s'
+        #                , format = '[%(asctime)s] %(levelname)s: %(message)s'
         #                    , filemode='a'
         #                    )
 
@@ -87,14 +87,16 @@ class NameServer:
         Perform a handshake protocol with the new client.
         """
         if len(parts)<3 or int(parts[2])<1024:
-            self.logger.info("From %s: Received HELLO but syntax invalid." % peerhandle.ip)
+            self.logger.info("From %s: Received HELLO but syntax invalid." \
+                             % peerhandle.ip)
             peerhandle.sock.sendall("102 REGISTRATION REQUIRED\n;")
             #peerhandle.sock.close()
             #peerhandle.scheduled_for_removal = True
             return 102 # REGISTRATION REQUIRED
         for ph in self.peerhandles:
             if ph.nick == parts[1]:
-                self.logger.info("%s tried to register %s, but that nick is taken" % (peerhandle.ip,parts[1]))
+                self.logger.info("%s tried to register %s, " \
+                "but that nick is taken" % (peerhandle.ip,parts[1]))
                 peerhandle.sock.sendall("101 TAKEN\n;")
                 #peerhandle.sock.close()
                 #peerhandle.scheduled_for_removal = True
@@ -173,7 +175,8 @@ class NameServer:
                     if sock:
                         request = ph.sock.recv(BUFFER_SIZE)
                         if request == "":
-                            print("Warning: a socket contained an empty string, closing it now")
+                            print("Warning: a socket contained an empty string"\
+                                  ", closing it now")
                             sock.close()
                             self.peerhandles.remove(ph)
                         else:
@@ -214,7 +217,8 @@ class NameServer:
         info_ph = self.get_peerhandle_by_nick(nick)
         if info_ph:
             self.logger.info('Sending user info for %s.' % nick)
-            peerhandle.sock.sendall('400 INFO %s %s\n;' % (info_ph.ip, info_ph.port))
+            peerhandle.sock.sendall('400 INFO %s %s\n;'
+                                    % (info_ph.ip, info_ph.port))
             return 400 # INFO <ip_addr> <port>
         self.logger.info('User %s not found.' % nick)
         peerhandle.sock.sendall('404 USER NOT FOUND\n;')
@@ -233,7 +237,6 @@ class NameServer:
         if parts[0] == "HELLO":
             return self.handshake(peerhandle,parts)
         elif peerhandle.nick:
-        #elif reduce(lambda x,ph: x or ph.sock==peerhandle.sock,self.peerhandles):
         #'- Read: elif sock in peerhandles
             if parts[0] == "LOOKUP" and len(parts) > 1:
                 self.logger.info('Lookup requested for nick %s.' % parts[1])
