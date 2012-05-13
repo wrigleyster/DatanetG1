@@ -165,7 +165,7 @@ class NameServer:
         
             # - Accept new connections.
 
-            self.client_accept(1)
+            self.client_accept(0.1)
             
             for ph in self.peerhandles:
                 try:

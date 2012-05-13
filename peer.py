@@ -139,11 +139,11 @@ class ChatPeer:
             #
             # - Check if the name server is trying to send you a message.
             if self.connected:
-                data = self.get_data(self.name_server_sock, True, 1)
+                data = self.get_data(self.name_server_sock, True, 0.1)
                 if data:
                     self.parse_and_print(data, self.name_server_sock)
             else:
-                time.sleep(1) #to avoid high cpu usage
+                time.sleep(0.1) #to avoid high cpu usage
                 
             # - Check if a peer is trying to send you a message.
 
@@ -173,15 +173,16 @@ class ChatPeer:
                     
             # - Check if anything was entered on the keyboard.
             if userinput_help:
-                print("Press ENTER to input")
+                print("Ready for input")
                 """ Eller ANY key :-) """
                 userinput_help = False
 
             i, o, e = select.select( [sys.stdin], [], [], self.TIMEOUT_S )
             if (i):
-                sys.stdin.readline().strip()
-                msg = raw_input("Enter Command now: ")
-                if len(msg) > 0:
+                msg = sys.stdin.readline()
+                parts = msg.split()
+                #msg = raw_input("Enter Command now: ")
+                if len(parts) > 0:
                     self.parse_msg(msg)
             
 
@@ -267,6 +268,7 @@ class ChatPeer:
         
         # Perform the handshake protocol.
         self.name_server_sock.sendall('HELLO ' + self.nickname + ' ' + str(self.client_listen_port))
+        
 
 
     def handshake_peer( self
@@ -291,6 +293,7 @@ class ChatPeer:
             if data:
                 parts = data.split()
                 if parts[0] == "200":
+                    self.socks2address[sock] = addr
                     self.socks2names[sock] = nick
                     self.peers[nick] = (sock, addr, port)
                     print("Succesfully connected to ", nick)
