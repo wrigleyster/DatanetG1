@@ -77,6 +77,16 @@ class Contact(object):
         # Contact and calculate the distance between this contact and the
         # other.
 
+        if type(other) == type(0L):
+            return self.cid^other
+        else:
+            try:
+                dist = self.cid^other.cid
+                return dist
+            except Exception as e:
+                return None
+            
+
     def _send(self, request):
         """Send a request to this contact.
 
@@ -84,13 +94,27 @@ class Contact(object):
         """
 
         # Create a TCP socket to this socket.
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.connect((self.ip, self.dht_port))        
 
         # Send the message as a serialized (pickled) dictionary.
+        sock.sendall(pickle.dumps(request))
 
         # Wait for a response.
+        data = None
+        try:
+            data = sock.recv(MAX_PACKET_SIZE)
+        except Exception as e:
+            sock.close()
 
         # Upon response deserialize the result (unpickle) and return the
         # dictionary.
+
+        if data:
+            msg = picke.loads(data)
+            return msg
+        else:
+            return None
             
         # When an exception is thrown return None.
 
