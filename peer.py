@@ -13,6 +13,11 @@ import logging
 import sys
 import time
 
+import pickle
+import node
+import contact
+import sha
+
 class ChatPeer:
     """
     Simple chat client that uses a name-server to lookup the address for a
@@ -23,10 +28,10 @@ class ChatPeer:
 
 
     def __init__( self
-                , name_server_ip = '127.0.0.1'
-                , name_server_port = 3456
                 , client_listen_port = 1234
                 , listen_queue_size = 5
+                , dht_port = 2345
+                , ip = '127.0.0.1'
                 ):
 
         """
@@ -35,15 +40,16 @@ class ChatPeer:
         """
 
         self.nickname = None
-
-        self.name_server_ip = name_server_ip
-        self.name_server_port = name_server_port
-        self.name_server_sock = None
+        self.node = None
+        self.ip = ip
         self.connected = False
+        self.listen_queue_size = listen_queue_size
 
         self.client_listen_port = client_listen_port
-        self.listen_queue_size = listen_queue_size
         self.client_listen_sock = None
+
+        self.dht_port = dht_port
+        self.dht_sock = None    
 
         self.BUFFER_SIZE = 1024
         self.TIMEOUT_S = 0
@@ -80,24 +86,6 @@ class ChatPeer:
         # HINT: stdin (for keyboard interaction) can be approached as a socket.
 
 
-    def setup_name_server(self):
-        """
-        Try to connect with the name server.
-        """
-
-        # Setup the connection with the name server.
-
-        # Use the logger object whenever a significant event occurs (such as
-        # successfully or unsuccessfully connecting with the name server).
-        try:
-            self.name_server_sock = socket.socket(socket.AF_INET,
-                                              socket.SOCK_STREAM)
-            self.name_server_sock.connect((self.name_server_ip,
-                                           self.name_server_port))
-            return 0
-        except Exception as e:
-            return 1
-
     def setup_client_listener(self):
         """
         Try to setup the peer to accept connections from other peers.
@@ -116,7 +104,21 @@ class ChatPeer:
                 print("Port in use. Switching to ", self.client_listen_port)
                 continue
 
-        # Set the peer up to accept connections from other peers.      
+        # Set the peer up to accept connections from other peers.
+
+    def setup_dht_sock(self):
+        
+        while True:            
+            try:
+                self.dht_sock = socket.socket(socket.AF_INET,
+                                                        socket.SOCK_STREAM)
+                self.dht_sock.bind((self.ip, self.dht_port))
+                self.dht_sock.listen(self.listen_queue_size)
+                break
+            except socket.error:
+                self.dht_port += 1
+                print("Port in use. Switching to ", self.dht_port)
+                continue
 
 
 
@@ -129,25 +131,11 @@ class ChatPeer:
         userinput_help = True
 
         self.setup_client_listener()
-        self.name_server_sock = socket.socket(socket.AF_INET,
-                                              socket.SOCK_STREAM)
+        self.setup_dht_sock()
         
         while running:
-            # Print a simple prompt.
-            #sys.stdout.write('\n> ')
-            #sys.stdout.flush()
 
             # In this loop you should:
-            #
-            # - Check if the name server is trying to send you a message.
-            if self.connected:
-                data = self.get_data(self.name_server_sock, True, 0.1)
-                if data:
-                    self.parse_and_print(data, self.name_server_sock)
-            else:
-                time.sleep(0.1) #to avoid high cpu usage
-                
-            # - Check if a peer is trying to send you a message.
 
             """ Check alle sockets om der ligger noget """
             for sock in self.socks2names.copy().iterkeys():
@@ -197,13 +185,8 @@ class ChatPeer:
         """
         if msg != '':
             parts = msg.split()
-            if parts[0] == "100":
-                    print("HANDSHAKE with NAMESERVER succesful")
-            elif parts[0] == "101":
-                print("HANDSHAKE with NAMESERVER unsuccesful: nickname taken")
-            elif parts[0] == "102":
-                print("HANDSHAKE unsuccesful: server did not receive HELLO")
-            elif parts[0] == "201":
+            
+            if parts[0] == "201":
                 print("PEER refused connection")
                 self.cleanup_lists(sock)
                 sock.close()
@@ -212,10 +195,6 @@ class ChatPeer:
             elif parts[0] == "203":
                 print('A PEER expected a HANDSHAKE, but received ' \
                                  'too few arguments.')
-            elif parts[0] == "500":
-                print("Server says BYE")
-            elif parts[0] == "501":
-                print("The nameserver did not know the nickname")
             elif parts[0] == "600":
                 print(self.socks2names[sock] + " has closed the connection")
             elif parts[0] == "601":
@@ -258,26 +237,7 @@ class ChatPeer:
         # You should analyse the message and respond according to the protocol.
         # You may assume that any message that does not adhere to the protocol
         # is garbage and can be discarded.
-
-
-
-    def handshake_name_server(self, nickname):
-        """
-        Register the user with the server using a specific nickname.
-        """
-
-        if not self.connected:
-            self.logger.warn('Attempted handshake without being connected.')
-
-            print "Not connected to the server."
-
-            return
         
-        # Perform the handshake protocol.
-        self.name_server_sock.sendall('HELLO ' + self.nickname + ' ' +
-                                      str(self.client_listen_port))
-        
-
 
     def handshake_peer( self
                       , sock
@@ -327,47 +287,23 @@ class ChatPeer:
 
         parts = msg.split()
 
-        if parts[0] == "/connect" and len(parts) >= 3:
-            if self.connected:
-                self.logger.info('Closing name-server connection and opening ' \
-                                 'new connection.')
+        #connect skal nu bruge en peers nickname, ip, dht_port, client_listen_sock
 
-                print 'Disconnecting from name-server and connecting to new ' \
-                      'name-server.'
+        if parts[0] == "/connect" and len(parts) >= 5:
+            if self.nickname == None:
+                print("Please chose a nickname first")
+                return
+            if self.node == None:
+                firstContact = contact.contact(sha.new(parts[0]), parts[1], parts[2], parts[3])
+                self.node = node.node(sha.new(self.nick), self.ip, self.dht_port, self.client_listen_sock)
+                node.joinDHTNetwork(firstContact)
                 
-                # Close the connection with the name server.
-                self.name_server_sock.close()
-                self.connected = False
-
-            # Get the hostname and port number from the commandline entered by
-            # the user.
-            self.name_server_ip = socket.gethostbyname(parts[1])
-            self.name_server_port = int(parts[2])
-
-            if self.setup_name_server() is 0:
-                self.connected = True
-                print("Connected to: " + parts[1] + " using port: " + parts[2])
-
-                if self.nickname is None and len(parts) == 4:
-                    self.handshake_name_server(parts[3])
-                    print("Registered with: " + parts[1] + " as: " +
-                          self.nickname)
-
-                elif self.nickname is None:
-                    print "Please choose a nickname and use '/register' to " \
-                          "register."
-
-                else:
-                    self.handshake_name_server(self.nickname)
-            else:
-                print "Couldn't establish connection to '%s'." % parts[1]
-
         elif parts[0] == "/nick" and len(parts) > 1:
             self.nickname = parts[1]
             print("Your nickname is now " + parts[1])
 
         elif parts[0] == "/register":
-            self.handshake_name_server(self.nickname)
+            pass
 
         elif parts[0] == "/msg" and len(parts) > 2:
             if parts[1] == self.nickname:
@@ -375,26 +311,11 @@ class ChatPeer:
                 return 
 
             if parts[1] not in self.peers and self.connected:
-                
-                # Connect with the peer and peform the handshake protocol.
-                output = self.get_nick_addr(parts[1])
-                if output:
-                    (addr, port) = output
-                    print("Trying to get socket using", addr, port)
-                    sock = self.connect_to_peer(addr, int(port))
-                    print("Received socket: ", sock)
-                    if self.handshake_peer(sock, addr, parts[1], int(port),
-                                           True) is 1:
-                        print("HANDSHAKE failed with PEER", parts[1])
-                        return
-                    else:
-                        print("Successfully HANDSHAKED with " + parts[1])
-                else:
-                    return
+                pass
                                         
             elif not self.connected:
                 self.logger.error('Could not connect to peer because we are ' \
-                                  'not connected to the name-server.')
+                                  'not connected to the DHT network.')
 
                 print "Could not connect to peer '%s'" % parts[1]
                 return
@@ -412,21 +333,7 @@ class ChatPeer:
             print 'Shutting down...'
 
             self.disconnect()
-            sys.exit(0)
-
-        
-        elif parts[0] == "/auto":
-            if self.setup_name_server() is 0:
-                self.connected = True
-                self.nickname = parts[1]
-                self.handshake_name_server(self.nickname)
-            else:
-                print('Connection to server failed. ' \
-                      'It may be offline or port is in use')
-
-                
-                
-            
+            sys.exit(0)    
 
         else:
             # Either we assume that normal messages (i.e. not commands) are
@@ -497,13 +404,8 @@ class ChatPeer:
             else:
                 print("Response from " + nick + " timed out")
                 sock.close()
-        self.name_server_sock.sendall("LEAVE " + self.nickname)
-        data = self.get_data(self.name_server_sock, True, self.TIMEOUT_L)
-        if data:
-            self.parse_and_print(data, self.name_server_sock)
-        else:
-            print("Response from nameserver timed out")
-        self.name_server_sock.close()
+
+        self.node.leaveDHTNetwork()
 
         self.peers = {}
         self.socks2names = {}
@@ -531,31 +433,6 @@ class ChatPeer:
 
         sock.send('MSG %s %s\n;' % (nick, msg))
 
-    
-    def get_nick_addr(self, nick):
-        """
-        Get the address belonging to a specific nick name.
-        """
-
-        # This function should return the ip address and a port number that
-        # user 'nick' can be reached at.
-
-        print("Getting user info for " + nick)
-        self.name_server_sock.sendall('LOOKUP ' + nick)
-        data = self.get_data(self.name_server_sock, True, self.TIMEOUT_L)
-        if data:
-            print("Server sent this info for " + nick + ":", data)
-            parts = data.split()
-            if parts[0] == "400":
-                return (parts[2], parts[3])
-            elif parts[0] == "404":
-                print(nick + " is not registered with the nameserver")
-                return None
-            print("Unkown response from server: ", data)
-            return None
-        else:
-            print("LOOKUP timed out")
-            return None
     
     def concat_string(self, string_list):
         max = len(string_list)
