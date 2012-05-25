@@ -1,0 +1,63 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1138\cocoasubrtf320
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;}
+{\*\listtable{\list\listtemplateid1\listhybrid{\listlevel\levelnfc23\levelnfcn23\leveljc0\leveljcn0\levelfollow0\levelstartat1\levelspace360\levelindent0{\*\levelmarker \{disc\}}{\leveltext\leveltemplateid1\'01\uc0\u8226 ;}{\levelnumbers;}\fi-360\li720\lin720 }{\listname ;}\listid1}}
+{\*\listoverridetable{\listoverride\listid1\listoverridecount0\ls1}}
+\paperw16840\paperh11900\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+
+\f0\b\fs24 \cf0 Question 1\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+
+\b0 \cf0 When the peer is started it needs two sockets. One socket listening for new connections from other peers. The second one is created when connecting to the name server.\
+\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+
+\b \cf0 Question 2
+\b0 \
+If the massages are restricted to BUFFER_SIZE charracters the length of the messages are limited. If we instead use a token to mark the end the message can be arbitrary length. A good token is a string which cannot be written by the user. In our interface the user cannot write a newline character in the message. Therefore we use the token "\\n". A combination of the two strategies could be to only use the token for MSG messages and use BUFFER_SIZE for all other messages.\
+\
+
+\b Question 3
+\b0 \
+If the two machines, M and N, are connected to the same network it is possible for the peers to connect to each other. When peer B connects and handshake with the name server (NS) the ip-address of it's machine is registered on the NS.\
+\
+\pard\tx220\tx720\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\li720\fi-720\pardirnatural
+\ls1\ilvl0\cf0 {\listtext	\'95	}peer A (marcos) connects to NS. <ip of A> is saved on NS\
+{\listtext	\'95	}peer A (marcos)<--> NS: HANDSHAKE. The name "tim" is registered with the socket, <ip of A> and <port of A>.\
+{\listtext	\'95	}peer B (tim) connects to NS. <ip of B> is saved on NS\
+{\listtext	\'95	}peer B (tim)<--> NS: HANDSHAKE. The name "tim" is registered with the socket, <ip of B> and <port of B>\
+{\listtext	\'95	}peer B --> NS: LOOKUP marcos\
+{\listtext	\'95	}peer B <-- NS: 400 INFO <ip of A> <port of A>\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+\cf0 \
+Now the peer B know the ip-address and port on machine M where peer A is listening for new connections.\
+\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+
+\b \cf0 Question 4\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+
+\b0 \cf0 If a socket to another peer (P2) dies, the socket should just be removed. If the user tries to write to P2. The peer will just try to get the address from the name server again.\
+If the socket to the name server dies it's possible to keep the connection to the already connected peers alive. Since this protocol is focused on all peers registered on a central name server, we chose that the peer will close all connections, when losing the connection to the name server.\
+\
+\pard\tx566\tx1133\tx1700\tx2267\tx2834\tx3401\tx3968\tx4535\tx5102\tx5669\tx6236\tx6803\pardirnatural
+
+\b \cf0 Question 5
+\b0 \
+\
+it's necessary to \
+\
+
+\b Question 6
+\b0 \
+When sending a broadcast massage we have to have a connections to all peers. We use the already implemented functionality for send unicast messages to make connections and hand shakes. In our implementation we keep all the new connections alive after sending the messages to make the implementation more simple. Else, we have to make the remember which new connections we did. This strategy also have the advantage that we don't have to make handshake when sending messages to the connected peers again.\
+A major problem with this strategy is the risk of burden the connection to much when having to many open connections.\
+\
+
+\b Question 7
+\b0 \
+In the current implementation when a peer receives a unicast or broadcast message the peer cannot see which kind of message. If we want to implement the functionality of sending multicast messages we can just implement this in application level. If the user want to send a multicast to two users, the application send two normal messages from the protocol. If we instead want to support a kind of group chat. It could be at \'85\'85\'85\
+\
+\
+}
