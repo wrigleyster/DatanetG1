@@ -14,6 +14,11 @@ import pickle
 
 import kademlia_constants
 
+class DHTMessage:
+    def __init__(self, message = "", contact = None):
+        self.message = message
+        self.contact = contact
+
 
 class Contact(object):
     """A contact in the DHT.
@@ -87,7 +92,7 @@ class Contact(object):
                 return None
             
 
-    def _send(self, request):
+    def _send(self, request, timeout = None):
         """Send a request to this contact.
 
         Return a dictionary upon result or None upon failure.
@@ -95,6 +100,8 @@ class Contact(object):
 
         # Create a TCP socket to this socket.
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        if timeout:
+            sock.settimeout(timeout)
         sock.connect((self.ip, self.dht_port))        
 
         # Send the message as a serialized (pickled) dictionary.
@@ -104,17 +111,14 @@ class Contact(object):
         data = None
         try:
             data = sock.recv(MAX_PACKET_SIZE)
+            msg = pickle.loads(data)
+            return msg
         except Exception as e:
-            sock.close()
+            return None
+        sock.close()
 
         # Upon response deserialize the result (unpickle) and return the
         # dictionary.
-
-        if data:
-            msg = picke.loads(data)
-            return msg
-        else:
-            return None
             
         # When an exception is thrown return None.
 
@@ -122,6 +126,15 @@ class Contact(object):
         """Send a ping request to this contact.
         """
 
+        message = DHTMesage("PING")
+        msg = self.send(message, 1)
+        if msg:
+            parts = msg.message.split()
+            if parts[0] == "PONG":
+                return True
+        return False
+        
+            
         # Send a PING request using the _send method.
 
     def lookup(self, contactId, sender):
@@ -131,6 +144,9 @@ class Contact(object):
         # Send a lookup request using the _send method, using 'sender' to
         # identify the sending contact. The 'sender' variable should be an
         # object of type Contact.
+        message = DHTMessage("LOOKUP " + str(contactId), sender)
+        return self.send(message)
+        
 
     def leave(self, contact):
         """Announce to this contact that the node/contact with contactId is
@@ -138,3 +154,6 @@ class Contact(object):
         """
 
         # Send a leave message to this contact using the _send method.
+
+        message = DHTMessage("LEAVE", contact)
+        self.send(message)
