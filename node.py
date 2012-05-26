@@ -63,8 +63,14 @@ class Node(object):
         # Given the dht listening socket from the peer:
         #
         # - accept the connection.
+        conn, addr = listen_sock.accept()
         #
         # - get the data.
+        if conn:
+            try:
+                data = conn.recv(MAX_PACKET_SIZE)
+            except Exception as e:
+                pass
         #
         # - respond to the request following the Kademlia protocol.
 
@@ -130,6 +136,7 @@ class Node(object):
         self.addContact(knownContact)
 
         # Search the DHT for your own id.
+        self.myself.lookup(knownContact.cid, self.myself)
 
     def leaveDHTNetwork(self):
         """Tell the k closest nodes that we are leaving.
