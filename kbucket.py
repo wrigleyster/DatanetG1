@@ -40,13 +40,27 @@ class KBucket(object):
         # If the contact is already in the kbucket, move it to keep the correct
         # order.
 
+        try:
+            self._contacts.remove(contact)
+            self._contacts.append(contact)
+
         # Else, add it if there is space left in the bucket.
+        except Exception as e:
+            if len(self._contacts) >= k:
+                raise KBucketException("Bucket full")
+            else:
+                self._contacts.append(contact)
 
         # If there is no space left raise a KBucketException.
 
     def delContact(self, contact):
         """Remove a contact from the bucket.
         """
+
+        try:
+            self._contacts.remove(contact)
+        except Exception as e:
+            pass
 
         # Remove the contact from the kbucket.
 
@@ -57,6 +71,11 @@ class KBucket(object):
         and then return the contact at that index.
         """
 
+        for i in range(0, len(self._contacts)):
+            if self._contacts[i].cid == contactId:
+                return self._contacts[i]
+        raise KBucketException("No such contact")
+
         # Return the contact belonging to a particular id. Be sure to take care
         # of exceptions.
 
@@ -66,6 +85,18 @@ class KBucket(object):
         Return all contacts if there are fewer than count.
         """
 
+        length = len(self._contacts)
+        if count >= length:
+            return self._contacts
+        else:
+            list = []
+            i = 0
+            while i < count:
+                list.append(self._contacts[i-1])
+                i += 1
+            return list
+                
+
         # Ensuring the invariants (see the docstring), return count (or fewer)
         # contacts from this kbucket.
 
@@ -74,9 +105,17 @@ class KBucket(object):
 
         The contactId should be of type long.
         """
+
+        if type(contactId) == type(0L):
+            if contactId >= self.minRange and contactId <= self.maxRange:
+                return True
+            else:
+                return False
+        else:
+            raise KBucketException("contactId was not of type long")
         
         # noget i retning af contact.cid >= kB.minRange && contact.cid < kB.maxRange
-        
+
         
         # Ensure the contact is inside the range of this bucket.
 
