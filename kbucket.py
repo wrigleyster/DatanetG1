@@ -74,7 +74,10 @@ class KBucket(object):
 
         The contactId should be of type long.
         """
-    
+        
+        # noget i retning af contact.cid >= kB.minRange && contact.cid < kB.maxRange
+        
+        
         # Ensure the contact is inside the range of this bucket.
 
     def __len__(self):

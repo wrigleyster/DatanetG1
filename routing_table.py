@@ -32,16 +32,53 @@ class RoutingTable(object):
     def addContact(self, contact):
         """Add a contact to the routing table.
         """
+        
+        # Ignore this request if the contact has the same node id as we have.        
+        if (contact.cid == self._nodeId):
+            return
 
-        # Ignore this request if the contact has the same node id as we have.
+        dist = contact.distance(self.nodeId)
 
         # Find the kbucket that this contact belongs to.
-
-        # Try adding the contact.
-        #
-        # If a KBucketException is thrown the bucket is full.
-        #
-        # Try to split the bucket and add the contact if this is successful.
+        i = 0;   
+        for kB in self._kbuckets:
+            if (kB.inRange(dist)):
+                try:
+                    # Try adding the contact.                    
+                    kB.addContact(contact)
+                except kbucket.KBucketException as e:
+                    # If a KBucketException is thrown the bucket is full.                    
+                                        
+                    # Try to split the bucket and add the contact if this is successful.
+                    # The buclet will only be splittet, if it contains our own key.
+                    if (kB.minRange < kB.maxRange && kB.inRange(0)):
+                        self._splitBucket(i)
+                        if (self._kbuckets[i].maxRange < contact.cid):
+                            # The contact should be putted in the lowest bucket
+                            self._kbuckets[i].addContact(contact)
+                        else:
+                            # The contact should be putted in the heighest bucket
+                            self._kbuckets[i+1].addContact(contact)                            
+                            
+                    # If it's not possible to split the bucket
+                    """ing the last used contacts first.
+                    To se if one of the connections are dead.
+                    We assume, that getCantacts returns the contacts in ascending order
+                    of the frequency of use."""
+                    else:
+                        contacts = kB.getContacts(len(kB))
+                        for c in contacts:
+                            if not c.ping():
+                                # Adding the contact
+                                kB.delContact(c)
+                                kB.addContact(contact)
+                                
+                        # The contact could not be added to the bucket.                    
+                        
+            i = i+1
+                
+        
+        
         #
         # If we can't split, in order ping each node starting at the MOST
         # RECENTLY USED node. Ping each node and remove the node if it does not
@@ -84,7 +121,10 @@ class RoutingTable(object):
     def _splitBucket(self, oldIndex):
         """Split a kbucket into two bucket covering the same range.
         """
-
+        
+        """Returning 1 on success. """
+        return 0
+        
         # Resize the range of the current (old) k-bucket.
 
         # Create a new k-bucket to cover the range split off from the old
