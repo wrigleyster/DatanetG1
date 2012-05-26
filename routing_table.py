@@ -26,7 +26,7 @@ class RoutingTable(object):
         """
 
         self._nodeId = nodeId
-        self._kbuckets = [kbucket.KBucket(minRange=0, maxRange=2**6)]
+        self._kbuckets = [kbucket.KBucket(minRange=0, maxRange=2**160)]
         self.logger = logging.getLogger('RoutingTable')
 
     def addContact(self, contact):
@@ -51,7 +51,9 @@ class RoutingTable(object):
                                         
                     # Try to split the bucket and add the contact if this is successful.
                     # The buclet will only be splittet, if it contains our own key.
-                    if (kB.minRange < kB.maxRange && kB.inRange(0)):
+                    # Our own key have the distance 0 and the smallest buket size will
+                    # be [2^0,2^1). Therefore
+                    if (int(kB.minRange,16) == 0 and int(kB.maxRange,16) == 2):
                         self._splitBucket(i)
                         if (self._kbuckets[i].maxRange < contact.cid):
                             # The contact should be putted in the lowest bucket
@@ -61,20 +63,19 @@ class RoutingTable(object):
                             self._kbuckets[i+1].addContact(contact)                            
                             
                     # If it's not possible to split the bucket
-                    """ing the last used contacts first.
-                    To se if one of the connections are dead.
-                    We assume, that getCantacts returns the contacts in ascending order
-                    of the frequency of use."""
+                    # ping the last used contacts first.
+                    # To se if one of the connections are dead.
+                    # We assume, that getCantacts returns the contacts in ascending order
+                    # of the frequency of use.
                     else:
                         contacts = kB.getContacts(len(kB))
                         for c in contacts:
                             if not c.ping():
                                 # Adding the contact
                                 kB.delContact(c)
-                                kB.addContact(contact)
-                                
-                        # The contact could not be added to the bucket.                    
-                        
+                                kB.addContact(contact)                                
+                        # The contact could not be added to the bucket.                                            
+                    return
             i = i+1
                 
         
@@ -121,6 +122,17 @@ class RoutingTable(object):
     def _splitBucket(self, oldIndex):
         """Split a kbucket into two bucket covering the same range.
         """
+        
+        '''We ensure that the list will remain sorted with the lowest range first.
+        Therefore oldIndex should always be 0.'''
+        firstPart = self._kbuckets[:oldIndex+1]
+        lastPart = self._kbuckets[oldIndex+1:]
+        
+        self._kbuckets[oldIndex].min
+        newBucket = kbucket.KBucket(minRange=0, maxRange=2**6)
+        
+        
+        
         
         """Returning 1 on success. """
         return 0
