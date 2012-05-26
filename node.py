@@ -127,6 +127,7 @@ class Node(object):
         """
 
         # Add the known contact to your own routing table.
+        self.addContact(knownContact)
 
         # Search the DHT for your own id.
 
