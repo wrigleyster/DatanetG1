@@ -50,7 +50,8 @@ class RoutingTable(object):
                     # If a KBucketException is thrown the bucket is full.                    
                                         
                     # Try to split the bucket and add the contact if this is successful.
-                    if (kB.minRange < kB.maxRange):
+                    # The buclet will only be splittet, if it contains our own key.
+                    if (kB.minRange < kB.maxRange && kB.inRange(0)):
                         self._splitBucket(i)
                         if (self._kbuckets[i].maxRange < contact.cid):
                             # The contact should be putted in the lowest bucket
