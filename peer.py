@@ -40,6 +40,7 @@ class ChatPeer:
         """
 
         self.nickname = None
+        self.lastChatPeer = None
         self.node = None
         self.ip = ip
         self.connected = False
@@ -294,16 +295,15 @@ class ChatPeer:
                 print("Please chose a nickname first")
                 return
             if self.node == None:
-                firstContact = contact.contact(sha.new(parts[0]), parts[1], parts[2], parts[3])
+                firstCid = int(sha.new(parts[0]).hexdigest(), 16)
+                firstContact = contact.contact(firstCid, parts[1], parts[2], parts[3])
                 self.node = node.node(sha.new(self.nick), self.ip, self.dht_port, self.client_listen_sock)
                 node.joinDHTNetwork(firstContact)
+                self.connected = True
                 
         elif parts[0] == "/nick" and len(parts) > 1:
             self.nickname = parts[1]
             print("Your nickname is now " + parts[1])
-
-        elif parts[0] == "/register":
-            pass
 
         elif parts[0] == "/msg" and len(parts) > 2:
             if parts[1] == self.nickname:
@@ -311,7 +311,14 @@ class ChatPeer:
                 return 
 
             if parts[1] not in self.peers and self.connected:
-                pass
+                cid = int(sha(parts[1]).hexdigest(), 16)
+                contact = self.node.findContact(cid)
+                if contact:
+                    sock = self.connect_to_peer(contact.ip, contact.chat_port)
+                    if self.handshake_peer(sock, contact.ip, parts[1], contact.chat_port, False) is 1:
+                        return
+                else:
+                    return
                                         
             elif not self.connected:
                 self.logger.error('Could not connect to peer because we are ' \
@@ -322,9 +329,7 @@ class ChatPeer:
                         
             # Send the message to the peer.
             self.send_private_msg(parts[1], ' '.join(parts[2:]))
-
-        elif parts[0] == "/all" and len(parts) > 1:
-            self.broadcast(' '.join(parts[1:]))
+            self.lastChatPeer = parts[1]
         
         elif parts[0] == "/leave":
             self.disconnect()
@@ -340,51 +345,10 @@ class ChatPeer:
             # always sent to the last person that received a private mssage or
             # we make normal messages broadcasts.
             
-            if self.connected:
-                self.parse_msg("/all " + msg)
+            if self.connected and self.lastChatPeer:
+                self.parse_msg("/msg " + msg)
             else:
                 print "Not connected!"
-
-
-    def broadcast(self, msg):
-        """
-        Broadcast a message to all connected users.
-        """
-
-        # Acquire a list of users from the name server and send the message to
-        # all users.
-        if self.connected:
-            self.name_server_sock.sendall("USERLIST")
-            data = self.get_data(self.name_server_sock, True, self.TIMEOUT_L)
-            if data:
-                parts = data.split()
-                if parts[0] == "300" and len(parts) > 3:
-                    pointer = 3
-                    loops_remaining = int(parts[2])
-                    while loops_remaining > 0:
-                        nick = parts[pointer]
-                        if nick in self.peers:
-                            self.send_private_msg(nick, msg)
-                        else:
-                            ip = parts[pointer + 1]
-                            temp = parts[pointer + 2].split(',')
-                            port = int(temp[0])
-                            sock = self.connect_to_peer(ip, port)
-                            if sock and (self.handshake_peer(sock, ip, nick,
-                                                             port, True) is 0):
-                                self.send_private_msg(nick, msg)
-                        pointer = pointer + 3
-                        loops_remaining = loops_remaining - 1                        
-                        
-                elif parts[0] == "301":
-                    print('There are no other users registered ' \
-                          'with the nameserver')
-                else:
-                    print("Unexpected response from server: ", data)      
-        else:
-            print("Please connect to the nameser before broadcasting")
-
-
 
 
     def disconnect(self):

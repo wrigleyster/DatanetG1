@@ -159,6 +159,7 @@ class Node(object):
                 if message:
                     parts = message.message.split()
                     if parts[0] == "VALUE":
+                        self.addContact(message.contact)
                         return message.contact
                     elif parts[0] == "REDIRECT":
                         for redirect in message.contact:
