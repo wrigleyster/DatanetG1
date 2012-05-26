@@ -83,11 +83,11 @@ class Contact(object):
         # other.
 
         if type(other) == type(0L):
-            return self.cid^other
+            return long(self.cid^other)
         else:
             try:
                 dist = self.cid^other.cid
-                return dist
+                return long(dist)
             except Exception as e:
                 return None
             
@@ -145,7 +145,7 @@ class Contact(object):
         # identify the sending contact. The 'sender' variable should be an
         # object of type Contact.
         message = DHTMessage("LOOKUP " + str(contactId), sender)
-        return self.send(message)
+        return self.send(message, 10)
         
 
     def leave(self, contact):
