@@ -16,6 +16,9 @@ import logging
 import kbucket
 import kademlia_constants
 
+"""In this framework we have to  """
+import math
+
 
 class RoutingTable(object):
     """A class implementation of the Kademlia routing protocol.
@@ -46,7 +49,7 @@ class RoutingTable(object):
                 try:
                     # Try adding the contact.                    
                     kB.addContact(contact)
-                except kbucket.KBucketException as e:
+                except kbucket.KBucketException:
                     # If a KBucketException is thrown the bucket is full.                    
                                         
                     # Try to split the bucket and add the contact if this is successful.
@@ -88,7 +91,14 @@ class RoutingTable(object):
     def getContact(self, contactId):
         """Retrieve a contact from our own routing table.
         """
-
+        index = self._kbucketIndex(self, contactId)
+        kB = self._kbuckets[index]
+        try:
+            return kB.getContact(contactId)
+        except kbucket.KBucketException:
+            return None
+        
+        
         # Find the contact in the correct kbucket and return it. If the contact
         # cannot be found return None.
 
@@ -96,6 +106,11 @@ class RoutingTable(object):
         """Remove a specific contact from the routing table if that contact
         is in the list.
         """
+        
+        index = self._kbucketIndex(self, contact.cid)
+        kB = self._kbuckets[index]
+        kB.delContact(contact)
+        return
 
         # Remove the contact from the correct kbucket or just return if the
         # contact was not in any bucket.
@@ -104,6 +119,7 @@ class RoutingTable(object):
         """Send a PING message to a contact to check if the contact is
         still alive.
         """
+        return contact.ping()
         
         # Ping a contact returning True if the ping was answered, and false
         # otherwise.
@@ -113,7 +129,26 @@ class RoutingTable(object):
 
         If there are less than n, we just return those.
         """
-
+        
+        # Finding the bucket which should containg the contact and it's neightbours
+        index = self._kbucketIndex(contactId)
+        kB = self._kbuckets[index]      
+        contacts = kB.getContacts(kademlia_constants.k)
+        
+        # Sortin the contacts from kB after the distance to contactId
+        contacts = sorted(contacts,key=lambda c: c.distance(contactId))
+        
+        if n < len(contacts):
+            return contacts[:n]
+            
+        while (index >= 0):
+            index = index - 1
+            contacts = contacts + self._kbuckets[index].getContacts(kademlia_constants.k)
+                
+        contacts = sorted(contacts,key=lambda c: c.distance(contactId))
+        return contacts[:n]
+    
+    
         # Select the n closest nodes to contactId that are available in our
         # routing table. Extend the list using nodes that are further away
         # until you have n. If there are fewer than n, return everything we
@@ -123,35 +158,48 @@ class RoutingTable(object):
         """Split a kbucket into two bucket covering the same range.
         """
         
-        '''We ensure that the list will remain sorted with the lowest range first.
-        Therefore oldIndex should always be 0.'''
-        firstPart = self._kbuckets[:oldIndex+1]
+        # We ensure that the list will remain sorted with the lowest range first.
+        # Therefore oldIndex should always be 0.        
+        oldBucket = self._kbuckets[oldIndex]
         lastPart = self._kbuckets[oldIndex+1:]
-        
-        self._kbuckets[oldIndex].min
-        newBucket = kbucket.KBucket(minRange=0, maxRange=2**6)
-        
-        
-        
-        
-        """Returning 1 on success. """
-        return 0
-        
-        # Resize the range of the current (old) k-bucket.
+
+        # Minimum range is always 0. There fore the "cut range" will be
+        # 2**(log2(maxRange)/2)      
+        cutRange = 1<<(math.log(oldBucket.maxRange,2) / 2)
 
         # Create a new k-bucket to cover the range split off from the old
         # bucket.
+        newBucket = kbucket.KBucket(minRange=cutRange, maxRange=oldBucket.maxRange)
 
+        # Resize the range of the current (old) k-bucket.
+        oldBucket.maxRange = cutRange
+        
+        # Moving contacts from old bucket to new bucket
+        contacts = oldBucket.getContacts(len(oldBucket))
+        for c in contacts:
+            if (not oldBucket.inRange(c)):
+                # Finally, copy all nodes that belong to the new k-bucket into it...
+                newBucket.addContact(c)
+                # ...and remove them from the old bucket
+                oldBucket.removeContact(c)
+                
         # Now, add the new bucket into the routing table.
+        self._kbuckets = [oldBucket, newBucket] + lastPart;        
 
-        # Finally, copy all nodes that belong to the new k-bucket into it...
 
-        # ...and remove them from the old bucket
 
     def _kbucketIndex(self, contactId):
         """Find the index of the kbucket in which range the contactId lies.
         """
-
+        
+        dist = self.nodeId.distance(contactId)
+        
+        i = 0
+        for kB in self._kbuckets:
+            if (kB.inRange(dist)):
+                return i
+            i = i+1
+        
         # Check each kbucket to see of the contactId is in range of that
         # bucket. return the index of bucket that contains this contactId.
 
