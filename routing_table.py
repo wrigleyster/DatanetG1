@@ -47,6 +47,7 @@ class RoutingTable(object):
         out = "---ROUTING TABLE---"
         for kB in self._kbuckets:
             out = out + "\n" + kB.__str__() + "\n"
+
         return out
 
     def addContact(self, contact):
@@ -55,7 +56,6 @@ class RoutingTable(object):
         
         # Ignore this request if the contact has the same node id as we have.        
         if (contact.cid == self._nodeId):
-            print("We will not add ourselves to the routing_table")
             return
 
         dist = contact.distance(self._nodeId)
@@ -78,12 +78,14 @@ class RoutingTable(object):
                     print("Splitting a bucket")
                     if (kB.minRange == 0 and kB.maxRange >= 4):
                         self._splitBucket(i)
+                        """
                         if (self._kbuckets[i].maxRange < contact.cid):
                             # The contact should be putted in the lowest bucket
                             self._kbuckets[i].addContact(contact)
                         else:
                             # The contact should be putted in the heighest bucket
-                            self._kbuckets[i+1].addContact(contact)                            
+                            self._kbuckets[i+1].addContact(contact)
+                        """
                             
                     # If it's not possible to split the bucket
                     # ping the last used contacts first.
@@ -206,7 +208,8 @@ class RoutingTable(object):
         oldBucket.maxRange = cutRange
         
         # Moving contacts from old bucket to new bucket
-        for c in oldBucket._contacts[cutRange:]:
+        for c in oldBucket._contacts:
+            if newBucket.inRange(c.cid):
                 # Finally, copy all nodes that belong to the new k-bucket into it...
                 newBucket.addContact(c)
                 # ...and remove them from the old bucket
@@ -229,11 +232,3 @@ class RoutingTable(object):
         
         # Check each kbucket to see of the contactId is in range of that
         # bucket. return the index of bucket that contains this contactId.
-
-    def printContacts(self):
-        """Print all the contact in all the kbuckets.
-        """
-
-        for kbucket in self._kbuckets:
-            for contact in kbucket._contacts:
-                print contact

@@ -54,15 +54,11 @@ class KBucket(object):
 
         # Else, add it if there is space left in the bucket.
         except Exception as e:
-            print("Kbucket: unkown contact, adding " + str(contact.dht_port))
+            print("Kbucket: adding " + str(contact.dht_port))
             if len(self._contacts) >= self.k:
-                print("Bucket was full")
                 raise KBucketException("Bucket full")
             else:
                 self._contacts.append(contact)
-        print("kbucket now contains: ")
-        for c in self._contacts:
-            print c.cid
             
 
         # If there is no space left raise a KBucketException.
