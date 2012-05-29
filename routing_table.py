@@ -209,11 +209,11 @@ class RoutingTable(object):
         
         # Moving contacts from old bucket to new bucket
         for c in oldBucket._contacts:
-            if newBucket.inRange(c.cid):
+            if newBucket.inRange(c.distance(self._nodeId)):
                 # Finally, copy all nodes that belong to the new k-bucket into it...
                 newBucket.addContact(c)
                 # ...and remove them from the old bucket
-                oldBucket.removeContact(c)
+                oldBucket.delContact(c)
                 
         # Now, add the new bucket into the routing table.
         self._kbuckets = [oldBucket, newBucket] + lastPart;        
