@@ -68,12 +68,14 @@ class RoutingTable(object):
                     print("Splitting a bucket")
                     if (kB.minRange == 0 and kB.maxRange >= 4):
                         self._splitBucket(i)
+                        """
                         if (self._kbuckets[i].maxRange < contact.cid):
                             # The contact should be putted in the lowest bucket
                             self._kbuckets[i].addContact(contact)
                         else:
                             # The contact should be putted in the heighest bucket
-                            self._kbuckets[i+1].addContact(contact)                            
+                            self._kbuckets[i+1].addContact(contact)
+                        """
                             
                     # If it's not possible to split the bucket
                     # ping the last used contacts first.
@@ -196,7 +198,8 @@ class RoutingTable(object):
         oldBucket.maxRange = cutRange
         
         # Moving contacts from old bucket to new bucket
-        for c in oldBucket._contacts[cutRange:]:
+        for c in oldBucket._contacts:
+            if newBucket.inRange(c.cid):
                 # Finally, copy all nodes that belong to the new k-bucket into it...
                 newBucket.addContact(c)
                 # ...and remove them from the old bucket
