@@ -33,10 +33,19 @@ class RoutingTable(object):
         self.logger = logging.getLogger('RoutingTable')
 
 
-    def __str__(self):        
+    def __str__(self):
+        
+        out = "routing table"
+        for kB in self._kbuckets:
+            out += "\n kbucket range [" + str(kB.minRange) + "," + str(kB.maxRange) + "]"
+            for c in kB._contacts:
+                out += "\n" + str(c.distance(self._nodeId)) + " == " + str(c.distance(self._nodeId) < kB.maxRange)
+            out +="\n"
+        return out
+        
+               
         out = "---ROUTING TABLE---"
         for kB in self._kbuckets:
-            out = out + "\nminRange = " + str(kB.minRange) + " maxRange = " + str(kB.maxRange)
             out = out + "\n" + kB.__str__() + "\n"
         return out
 
