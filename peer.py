@@ -321,7 +321,9 @@ class ChatPeer:
             firstContact = Contact(firstCid, parts[2], parts[3], parts[4])
             self.node.joinDHTNetwork(firstContact)
             self.connected = True
-                
+        
+        elif parts[0] == "/printtable":
+            print(self.node._routing_table)
         elif parts[0] == "/nick" and len(parts) > 1:
             self.nickname = parts[1]
             print("Your nickname is now " + parts[1])
