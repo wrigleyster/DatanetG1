@@ -105,15 +105,18 @@ class Contact(object):
         sock.connect((self.ip, self.dht_port))        
 
         # Send the message as a serialized (pickled) dictionary.
+        print("sending " + request.message)
         sock.sendall(pickle.dumps(request))
 
         # Wait for a response.
         data = None
         try:
-            data = sock.recv(MAX_PACKET_SIZE)
+            data = sock.recv(self.MAX_PACKET_SIZE)
             msg = pickle.loads(data)
+            print("_send received " + msg.message)
             return msg
         except Exception as e:
+            print e
             return None
         sock.close()
 
@@ -146,7 +149,7 @@ class Contact(object):
         # identify the sending contact. The 'sender' variable should be an
         # object of type Contact.
         message = DHTMessage("LOOKUP " + str(contactId), sender)
-        return self._send(message, 10)
+        return self._send(message)
         
 
     def leave(self, contact):
@@ -157,4 +160,4 @@ class Contact(object):
         # Send a leave message to this contact using the _send method.
 
         message = DHTMessage("LEAVE", contact)
-        self.send(message)
+        self._send(message)

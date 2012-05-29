@@ -307,7 +307,7 @@ class ChatPeer:
             if self.node == None:
                 nid = int(sha.new(self.nickname).hexdigest(), 16)
                 self.node = Node(nid, self.ip, self.dht_port, self.client_listen_port)
-            firstCid = int(sha.new(parts[0]).hexdigest(), 16)
+            firstCid = int(sha.new(parts[1]).hexdigest(), 16)
             firstContact = Contact(firstCid, parts[2], parts[3], parts[4])
             self.node.joinDHTNetwork(firstContact)
             self.connected = True
@@ -326,7 +326,7 @@ class ChatPeer:
                 contact = self.node.findContact(cid)
                 if contact:
                     sock = self.connect_to_peer(contact.ip, contact.chat_port)
-                    if self.handshake_peer(sock, contact.ip, parts[1], contact.chat_port, False) is 1:
+                    if self.handshake_peer(sock, contact.ip, parts[1], contact.chat_port, True) is 1:
                         return
                 else:
                     print("contact not found")
@@ -341,6 +341,7 @@ class ChatPeer:
                 return
                         
             # Send the message to the peer.
+            print("sending private msg")
             self.send_private_msg(parts[1], ' '.join(parts[2:]))
             self.lastChatPeer = parts[1]
         

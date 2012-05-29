@@ -42,13 +42,11 @@ class RoutingTable(object):
             return
 
         dist = contact.distance(self._nodeId)
-        print("addContact distance: " + str(dist))
 
         # Find the kbucket that this contact belongs to.
         i = 0;   
         for kB in self._kbuckets:
             if (kB.inRange(dist)):
-                print("kbucket migth be in range")
                 try:
                     # Try adding the contact.                    
                     kB.addContact(contact)
@@ -95,6 +93,15 @@ class RoutingTable(object):
     def getContact(self, contactId):
         """Retrieve a contact from our own routing table.
         """
+        """
+
+        for kB in self._kbuckets:
+            for c in kB._contacts:
+                if c.cid == contactId:
+                    return c
+        return None
+    """
+
         index = self._kbucketIndex(contactId)
         kB = self._kbuckets[index]
         try:

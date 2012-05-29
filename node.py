@@ -35,6 +35,7 @@ class Node(object):
         """
 
         self.nid = nid
+        print("nid: ", nid)
         self._ip = ip
         self._dht_port = int(dht_port)
         self._chat_port = int(chat_port)
@@ -87,18 +88,19 @@ class Node(object):
                 parts = message.message.split()
                 if parts[0] == "PING":
                     print("PING from " + str(message.contact.cid))
-                    message.contact._send("PONG")
+                    response = DHTMessage("PONG")
+                    conn.sendall(pickle.dumps(response))
                 elif parts[0] == "LOOKUP":
                     if len(parts) <= 1:
                         return                        
                     contact = self._routing_table.getContact(long(parts[1]))
                     if contact:
                         response = DHTMessage("VALUE", contact)
-                        message.contact._send(response)
+                        conn.sendall(pickle.dumps(response))
                     else:
-                        closer = self._routing_table.findNClosestNodes(long(parts[1]), self.k)
+                        closer = self._routing_table.findNClosestNodes(long(parts[1]), kademlia_constants.k)
                         response = DHTMessage("REDIRECT", closer)
-                        message.contact._send(response)
+                        conn.sendall(pickle.dumps(response))
                 elif parts[0] == "LEAVE":
                     self.delContact(message.contact)
                     
