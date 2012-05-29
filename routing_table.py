@@ -33,12 +33,12 @@ class RoutingTable(object):
         self.logger = logging.getLogger('RoutingTable')
 
 
-    def __str__(self):
-        print("---ROUTING TABLE---")
+    def __str__(self):        
+        out = "---ROUTING TABLE---"
         for kB in self._kbuckets:
-            print("minRange = " + str(kB.minRange) + " maxRange = " + str(kB.maxRange))
-            print(kB)
-            print("\n")
+            out = out + "\nminRange = " + str(kB.minRange) + " maxRange = " + str(kB.maxRange)
+            out = "\n" + kB.__str__() + "\n"
+        return out
 
     def addContact(self, contact):
         """Add a contact to the routing table.
