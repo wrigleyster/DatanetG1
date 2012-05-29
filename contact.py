@@ -132,6 +132,7 @@ class Contact(object):
             parts = msg.message.split()
             if parts[0] == "PONG":
                 return True
+        print("No response from " + str(self.dht_port))
         return False
         
             
@@ -145,7 +146,7 @@ class Contact(object):
         # identify the sending contact. The 'sender' variable should be an
         # object of type Contact.
         message = DHTMessage("LOOKUP " + str(contactId), sender)
-        return self.send(message, 10)
+        return self._send(message, 10)
         
 
     def leave(self, contact):

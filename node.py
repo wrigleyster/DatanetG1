@@ -46,7 +46,7 @@ class Node(object):
         # Get the logger (configured in peer.py).
         self.logger = logging.getLogger('DHTNode')
 
-        self._routing_table = routing_table.RoutingTable(nid)
+        self._routing_table = routing_table.RoutingTable(self.nid)
 
     def addContact(self, contact):
         """Add a contact to the node's routing table.
@@ -69,30 +69,36 @@ class Node(object):
         # Given the dht listening socket from the peer:
         #
         # - accept the connection.
-        conn, addr = listen_sock.accept()
+        listen_sock.settimeout(0.1)
+        conn = None
+        try:
+            conn, addr = listen_sock.accept()
+        except Exception as e:
+            pass
         #
         # - get the data.
         if conn:
+            print("got a connection")
             try:
-                data = conn.recv(MAX_PACKET_SIZE)
+                data = conn.recv(kademlia_constants.MAX_PACKET_SIZE)
                 message = pickle.loads(data)
                 if message.contact:
                     self.addContact(message.contact)
                 parts = message.message.split()
                 if parts[0] == "PING":
                     print("PING from " + str(message.contact.cid))
-                    message.contact.send("PONG")
+                    message.contact._send("PONG")
                 elif parts[0] == "LOOKUP":
                     if len(parts) <= 1:
                         return                        
                     contact = self._routing_table.getContact(long(parts[1]))
                     if contact:
                         response = DHTMessage("VALUE", contact)
-                        message.contact.send(response)
+                        message.contact._send(response)
                     else:
                         closer = self._routing_table.findNClosestNodes(long(parts[1]), self.k)
                         response = DHTMessage("REDIRECT", closer)
-                        message.contact.send(response)
+                        message.contact._send(response)
                 elif parts[0] == "LEAVE":
                     self.delContact(message.contact)
                     
@@ -141,6 +147,7 @@ class Node(object):
         # Get a list of the 3 closest nodes in our own routing table. Or
         # simply the entire table if there are less than 3 nodes.
         closer = self._routing_table.findNClosestNodes(contactId, 3)
+        print("closest nodes____________________:", closer)
         contacted = []
 
         # NOTE: Extending the list we are iterating over inside the loop body
@@ -153,9 +160,10 @@ class Node(object):
         # provided by our neighboring nodes.
 
         while len(closer) > 0:
+            print("while running")
             for contact in closer:
                 self._routing_table.addContact(contact)
-                message = contact.lookup(contactId, self.mySelf)
+                message = contact.lookup(contactId, self.myself)
                 if message:
                     parts = message.message.split()
                     if parts[0] == "VALUE":
@@ -166,7 +174,7 @@ class Node(object):
                             if redirect not in contacted:
                                 closer.append(redirect)
                 else:
-                    self._routing_table.removeContact(contact)
+                    self._routing_table.delContact(contact)
                 closer.remove(contact)
                 contacted.append(contact)
         return None
@@ -197,12 +205,12 @@ class Node(object):
         self.addContact(knownContact)
 
         # Search the DHT for your own id.
-        self.findContactInDHT(self.cid)
+        self.findContactInDHT(self.myself.cid)
 
     def leaveDHTNetwork(self):
         """Tell the k closest nodes that we are leaving.
         """
-        closeNodes = self._routing_table.findNClosestNodes(self.cid, self.k)
+        closeNodes = self._routing_table.findNClosestNodes(self.nid, kademlia_constants.k)
         for contact in closeNodes:
             contact.leave(self.myself)
             

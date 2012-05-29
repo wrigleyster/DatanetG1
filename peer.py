@@ -16,6 +16,8 @@ import time
 import pickle
 import node
 import contact
+from contact import Contact
+from node import Node
 import sha
 
 class ChatPeer:
@@ -136,6 +138,10 @@ class ChatPeer:
         
         while running:
 
+            if self.nickname and self.node == None:
+                nid = int(sha.new(self.nickname).hexdigest(), 16)
+                self.node = Node(nid, self.ip, self.dht_port, self.client_listen_port)                
+
             # In this loop you should:
 
             """ Check alle sockets om der ligger noget """
@@ -144,10 +150,9 @@ class ChatPeer:
                 if data:
                     self.parse_and_print(data, sock)
                
-               
             # - Check if a new peer is trying to connect with you.
             i, o, e = select.select([self.client_listen_sock], [], [],
-                                    self.TIMEOUT_S)
+                                    0.1)
             if i:
                 conn, addr = self.client_listen_sock.accept()
                 if conn:
@@ -162,6 +167,11 @@ class ChatPeer:
                         conn.sendall("201 REFUSED")
                         self.cleanup_lists(conn)
                         conn.close()
+
+            # - Check dht_sock
+
+            if self.node:
+                self.node.handle(self.dht_sock)
                     
             # - Check if anything was entered on the keyboard.
             if userinput_help:
@@ -288,18 +298,19 @@ class ChatPeer:
 
         parts = msg.split()
 
-        #connect skal nu bruge en peers nickname, ip, dht_port, client_listen_sock
+        #connect skal nu bruge en peers nickname, ip, dht_port, client_listen_port
 
         if parts[0] == "/connect" and len(parts) >= 5:
             if self.nickname == None:
                 print("Please chose a nickname first")
                 return
             if self.node == None:
-                firstCid = int(sha.new(parts[0]).hexdigest(), 16)
-                firstContact = contact.contact(firstCid, parts[1], parts[2], parts[3])
-                self.node = node.node(sha.new(self.nick), self.ip, self.dht_port, self.client_listen_sock)
-                node.joinDHTNetwork(firstContact)
-                self.connected = True
+                nid = int(sha.new(self.nickname).hexdigest(), 16)
+                self.node = Node(nid, self.ip, self.dht_port, self.client_listen_port)
+            firstCid = int(sha.new(parts[0]).hexdigest(), 16)
+            firstContact = Contact(firstCid, parts[2], parts[3], parts[4])
+            self.node.joinDHTNetwork(firstContact)
+            self.connected = True
                 
         elif parts[0] == "/nick" and len(parts) > 1:
             self.nickname = parts[1]
@@ -311,20 +322,22 @@ class ChatPeer:
                 return 
 
             if parts[1] not in self.peers and self.connected:
-                cid = int(sha(parts[1]).hexdigest(), 16)
+                cid = int(sha.new(parts[1]).hexdigest(), 16)
                 contact = self.node.findContact(cid)
                 if contact:
                     sock = self.connect_to_peer(contact.ip, contact.chat_port)
                     if self.handshake_peer(sock, contact.ip, parts[1], contact.chat_port, False) is 1:
                         return
                 else:
+                    print("contact not found")
                     return
                                         
             elif not self.connected:
                 self.logger.error('Could not connect to peer because we are ' \
                                   'not connected to the DHT network.')
 
-                print "Could not connect to peer '%s'" % parts[1]
+                print("Could not connect to peer '%s'" % parts[1] + ' because' \
+                      ' we are not connected to the DHT network.')
                 return
                         
             # Send the message to the peer.
@@ -338,7 +351,10 @@ class ChatPeer:
             print 'Shutting down...'
 
             self.disconnect()
-            sys.exit(0)    
+            sys.exit(0)
+        elif parts[0] == "/c":
+            self.nickname = "nick"
+            self.parse_msg("/connect " + parts[1] + " 127.0.0.1 2345 1234")
 
         else:
             # Either we assume that normal messages (i.e. not commands) are

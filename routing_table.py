@@ -38,18 +38,22 @@ class RoutingTable(object):
         
         # Ignore this request if the contact has the same node id as we have.        
         if (contact.cid == self._nodeId):
+            print("We will not add ourselves to the routing_table")
             return
 
-        dist = contact.distance(self.nodeId)
+        dist = contact.distance(self._nodeId)
+        print("addContact distance: " + str(dist))
 
         # Find the kbucket that this contact belongs to.
         i = 0;   
         for kB in self._kbuckets:
             if (kB.inRange(dist)):
+                print("kbucket migth be in range")
                 try:
                     # Try adding the contact.                    
                     kB.addContact(contact)
-                except kbucket.KBucketException:
+                except kbucket.KBucketException as e:
+                    print e
                     # If a KBucketException is thrown the bucket is full.                    
                                         
                     # Try to split the bucket and add the contact if this is successful.
@@ -91,7 +95,7 @@ class RoutingTable(object):
     def getContact(self, contactId):
         """Retrieve a contact from our own routing table.
         """
-        index = self._kbucketIndex(self, contactId)
+        index = self._kbucketIndex(contactId)
         kB = self._kbuckets[index]
         try:
             return kB.getContact(contactId)
@@ -107,7 +111,7 @@ class RoutingTable(object):
         is in the list.
         """
         
-        index = self._kbucketIndex(self, contact.cid)
+        index = self._kbucketIndex(contact.cid)
         kB = self._kbuckets[index]
         kB.delContact(contact)
         return
@@ -192,11 +196,9 @@ class RoutingTable(object):
         """Find the index of the kbucket in which range the contactId lies.
         """
         
-        dist = self.nodeId.distance(contactId)
-        
         i = 0
         for kB in self._kbuckets:
-            if (kB.inRange(dist)):
+            if (kB.inRange(contactId)):
                 return i
             i = i+1
         
