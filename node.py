@@ -148,7 +148,6 @@ class Node(object):
         # Get a list of the 3 closest nodes in our own routing table. Or
         # simply the entire table if there are less than 3 nodes.
         closer = self._routing_table.findNClosestNodes(contactId, 3)
-        print("closest nodes____________________:", closer)
         contacted = []
 
         # NOTE: Extending the list we are iterating over inside the loop body

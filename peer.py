@@ -362,8 +362,8 @@ class ChatPeer:
 
             self.disconnect()
             sys.exit(0)
-        elif parts[0] == "/c":
-            self.nickname = "nick"
+        elif parts[0] == "/c" and len(parts) >= 3:
+            self.nickname = parts[2]
             self.parse_msg("/connect " + parts[1] + " 127.0.0.1 2345 1234")
 
         else:

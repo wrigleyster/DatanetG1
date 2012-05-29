@@ -149,7 +149,7 @@ class Contact(object):
         # identify the sending contact. The 'sender' variable should be an
         # object of type Contact.
         message = DHTMessage("LOOKUP " + str(contactId), sender)
-        return self._send(message)
+        return self._send(message, 10)
         
 
     def leave(self, contact):

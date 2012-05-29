@@ -63,10 +63,11 @@ class RoutingTable(object):
                     # If a KBucketException is thrown the bucket is full.                    
                                         
                     # Try to split the bucket and add the contact if this is successful.
-                    # The buclet will only be splittet, if it contains our own key.
-                    # Our own key have the distance 0 and the smallest buket size will
+                    # The bucket will only be split, if it contains our own key.
+                    # Our own key have the distance 0 and the smallest bucket size will
                     # be [2^0,2^1). Therefore
-                    if (int(kB.minRange,16) == 0 and int(kB.maxRange,16) == 2):
+                    print("Splitting a bucket")
+                    if (kB.minRange == 0 and kB.maxRange >= 4):
                         self._splitBucket(i)
                         if (self._kbuckets[i].maxRange < contact.cid):
                             # The contact should be putted in the lowest bucket
@@ -178,25 +179,26 @@ class RoutingTable(object):
         """
         
         # We ensure that the list will remain sorted with the lowest range first.
-        # Therefore oldIndex should always be 0.        
+        # Therefore oldIndex should always be 0.
+        if oldIndex != 0:
+            Print("Trying to split kbucket with incorrect index: " + str(oldIndex))
+            return
         oldBucket = self._kbuckets[oldIndex]
         lastPart = self._kbuckets[oldIndex+1:]
 
         # Minimum range is always 0. There fore the "cut range" will be
         # 2**(log2(maxRange)/2)      
-        cutRange = 1<<(math.log(oldBucket.maxRange,2) / 2)
+        cutRange = 2**int(math.log(oldBucket.maxRange, 2)/2)
 
         # Create a new k-bucket to cover the range split off from the old
         # bucket.
-        newBucket = kbucket.KBucket(minRange=cutRange, maxRange=oldBucket.maxRange)
+        newBucket = kbucket.KBucket(cutRange+1, oldBucket.maxRange)
 
         # Resize the range of the current (old) k-bucket.
         oldBucket.maxRange = cutRange
         
         # Moving contacts from old bucket to new bucket
-        contacts = oldBucket.getContacts(len(oldBucket))
-        for c in contacts:
-            if (not oldBucket.inRange(c)):
+        for c in oldBucket._contacts[cutRange:]:
                 # Finally, copy all nodes that belong to the new k-bucket into it...
                 newBucket.addContact(c)
                 # ...and remove them from the old bucket
