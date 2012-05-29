@@ -136,6 +136,9 @@ class ChatPeer:
         self.setup_client_listener()
         self.setup_dht_sock()
         
+        print("Client listener at port: " + str(self.client_listen_port))
+        print("DHT socket at port: " + str(self.dht_port))
+        
         while running:
 
             if self.nickname and self.node == None:
