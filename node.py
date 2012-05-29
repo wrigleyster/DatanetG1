@@ -78,7 +78,6 @@ class Node(object):
         #
         # - get the data.
         if conn:
-            print("got a connection")
             try:
                 data = conn.recv(kademlia_constants.MAX_PACKET_SIZE)
                 message = pickle.loads(data)
@@ -160,7 +159,6 @@ class Node(object):
         # provided by our neighboring nodes.
 
         while len(closer) > 0:
-            print("while running")
             for contact in closer:
                 self._routing_table.addContact(contact)
                 message = contact.lookup(contactId, self.myself)

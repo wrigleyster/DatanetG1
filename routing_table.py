@@ -32,13 +32,21 @@ class RoutingTable(object):
         self._kbuckets = [kbucket.KBucket(minRange=0, maxRange=2**160)]
         self.logger = logging.getLogger('RoutingTable')
 
-
+    """
     def __str__(self):
         print("---ROUTING TABLE---")
         for kB in self._kbuckets:
             print("minRange = " + str(kB.minRange) + " maxRange = " + str(kB.maxRange))
             print(kB)
             print("\n")
+    """
+
+    def printContacts(self):
+        i = 0
+        for kB in self._kbuckets:
+            print("contacts in kbucket " + str(i) + ":")
+            for c in kB._contacts:
+                print c.cid
 
     def addContact(self, contact):
         """Add a contact to the routing table.
@@ -91,6 +99,8 @@ class RoutingTable(object):
                         # The contact could not be added to the bucket.                                            
                     return
             i = i+1
+        print("Printing contacts:____________")
+        self.printContacts()
                 
         
         
@@ -221,11 +231,3 @@ class RoutingTable(object):
         
         # Check each kbucket to see of the contactId is in range of that
         # bucket. return the index of bucket that contains this contactId.
-
-    def printContacts(self):
-        """Print all the contact in all the kbuckets.
-        """
-
-        for kbucket in self._kbuckets:
-            for contact in kbucket._contacts:
-                print contact
