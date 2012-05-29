@@ -35,7 +35,6 @@ class Node(object):
         """
 
         self.nid = nid
-        print("nid: ", nid)
         self._ip = ip
         self._dht_port = int(dht_port)
         self._chat_port = int(chat_port)

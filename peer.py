@@ -143,7 +143,8 @@ class ChatPeer:
 
             if self.nickname and self.node == None:
                 nid = int(sha.new(self.nickname).hexdigest(), 16)
-                self.node = Node(nid, self.ip, self.dht_port, self.client_listen_port)                
+                self.node = Node(nid, self.ip, self.dht_port, self.client_listen_port)
+                print("Creating node with nid: " + str(nid))
 
             # In this loop you should:
 
@@ -174,6 +175,11 @@ class ChatPeer:
             # - Check dht_sock
 
             if self.node:
+                if not self.connected:
+                    for kB in self.node._routing_table._kbuckets:
+                        if len(kB) > 0:
+                            self.connected = True
+                            print("We are now connected to the DHT network")
                 self.node.handle(self.dht_sock)
                     
             # - Check if anything was entered on the keyboard.
@@ -225,6 +231,7 @@ class ChatPeer:
                     sock.close()
             elif parts[0] == "MSG" and len(parts) > 1:
                 if self.socks2names[sock] in self.peers:
+                    self.lastChatPeer = self.socks2names[sock]
                     print(self.socks2names[sock] + ": " +
                           self.concat_string(parts[2:]))
                 else:
@@ -344,7 +351,6 @@ class ChatPeer:
                 return
                         
             # Send the message to the peer.
-            print("sending private msg")
             self.send_private_msg(parts[1], ' '.join(parts[2:]))
             self.lastChatPeer = parts[1]
         
@@ -366,7 +372,7 @@ class ChatPeer:
             # we make normal messages broadcasts.
             
             if self.connected and self.lastChatPeer:
-                self.parse_msg("/msg " + msg)
+                self.parse_msg("/msg " + self.lastChatPeer + " " + msg)
             else:
                 print "Not connected!"
 
