@@ -20,7 +20,9 @@ class KBucket(object):
 
     def __init__(self, minRange, maxRange):
         """Initialize a KBucket with a certain range.
+            minRange and maxRange are decimal format
         """
+        
 
         self.k = kademlia_constants.k
         self.minRange = minRange

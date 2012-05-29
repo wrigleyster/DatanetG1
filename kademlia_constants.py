@@ -7,7 +7,7 @@
 
 ### The maximum bucket size.
 
-k = 5
+k = 2#5
 
 
 ### The maximum packet size.

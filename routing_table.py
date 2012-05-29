@@ -32,11 +32,22 @@ class RoutingTable(object):
         self._kbuckets = [kbucket.KBucket(minRange=0, maxRange=2**160)]
         self.logger = logging.getLogger('RoutingTable')
 
-    def __str__(self):        
+
+    def __str__(self):
+        
+        out = "routing table"
+        for kB in self._kbuckets:
+            out += "\n kbucket range [" + str(kB.minRange) + "," + str(kB.maxRange) + "]"
+            for c in kB._contacts:
+                out += "\n" + str(c.distance(self._nodeId)) + " == " + str(c.distance(self._nodeId) < kB.maxRange)
+            out +="\n"
+        return out
+        
+               
         out = "---ROUTING TABLE---"
         for kB in self._kbuckets:
-            out = out + "\nminRange = " + str(kB.minRange) + " maxRange = " + str(kB.maxRange)
-            out += "\n" + kB.__str__() + "\n"
+            out = out + "\n" + kB.__str__() + "\n"
+
         return out
 
     def addContact(self, contact):
@@ -198,11 +209,11 @@ class RoutingTable(object):
         
         # Moving contacts from old bucket to new bucket
         for c in oldBucket._contacts:
-            if newBucket.inRange(c.cid):
+            if newBucket.inRange(c.distance(self._nodeId)):
                 # Finally, copy all nodes that belong to the new k-bucket into it...
                 newBucket.addContact(c)
                 # ...and remove them from the old bucket
-                oldBucket.removeContact(c)
+                oldBucket.delContact(c)
                 
         # Now, add the new bucket into the routing table.
         self._kbuckets = [oldBucket, newBucket] + lastPart;        
