@@ -110,7 +110,6 @@ class RoutingTable(object):
                     return c
         return None
     """
-        print(self)
         index = self._kbucketIndex(contactId)
         kB = self._kbuckets[index]
         try:
