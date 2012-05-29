@@ -57,8 +57,6 @@ class KBucket(object):
                 raise KBucketException("Bucket full")
             else:
                 self._contacts.append(contact)
-        for c in self._contacts:
-            print c.cid
             
 
         # If there is no space left raise a KBucketException.

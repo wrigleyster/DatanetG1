@@ -45,7 +45,6 @@ class RoutingTable(object):
         
         # Ignore this request if the contact has the same node id as we have.        
         if (contact.cid == self._nodeId):
-            print("We will not add ourselves to the routing_table")
             return
 
         dist = contact.distance(self._nodeId)
