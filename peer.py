@@ -322,6 +322,10 @@ class ChatPeer:
             self.node.joinDHTNetwork(firstContact)
             self.connected = True
                 
+        elif parts[0] == "/msg" and len(parts) > 2:
+            if parts[1] == self.nickname:
+                print "Cannot send a private message to yourself."
+                return
         elif parts[0] == "/nick" and len(parts) > 1:
             self.nickname = parts[1]
             print("Your nickname is now " + parts[1])
