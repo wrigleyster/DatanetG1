@@ -32,6 +32,14 @@ class RoutingTable(object):
         self._kbuckets = [kbucket.KBucket(minRange=0, maxRange=2**160)]
         self.logger = logging.getLogger('RoutingTable')
 
+
+    def __str__(self):
+        print("---ROUTING TABLE---")
+        for kB in self._kbuckets:
+            print("minRange = " + str(kB.minRange) + " maxRange = " + str(kB.maxRange))
+            print(kB)
+            print("\n")
+
     def addContact(self, contact):
         """Add a contact to the routing table.
         """
@@ -101,7 +109,7 @@ class RoutingTable(object):
                     return c
         return None
     """
-
+        print(self)
         index = self._kbucketIndex(contactId)
         kB = self._kbuckets[index]
         try:

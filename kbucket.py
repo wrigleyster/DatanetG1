@@ -29,6 +29,12 @@ class KBucket(object):
 
         self.logger = logging.getLogger('KBucket')
 
+    def __str__(self):
+        print("minRange = " + str(self.minRange) + " maxRange = " + str(self.maxRange))
+        for c in self._contacts:
+            print(str(c.cid))
+            
+        
     def addContact(self, contact):
         """Add a contact to the bucket.
 
