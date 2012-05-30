@@ -81,7 +81,7 @@ class RoutingTable(object):
                         
                         # Since bucket i have lower range than i+1 then we only have to
                         # check maxRange.
-                        if (self._kbuckets[i].maxRange >= contact.distance(self._nodeId)):
+                        if (self._kbuckets[i].maxRange > contact.distance(self._nodeId)):
                             # The contact should be putted in the lowest bucket
                             self._kbuckets[i].addContact(contact)
                         else:
