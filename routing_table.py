@@ -79,7 +79,9 @@ class RoutingTable(object):
                     if (kB.minRange == 0 and kB.maxRange >= 4):
                         self._splitBucket(i)
                         
-                        if (self._kbuckets[i].maxRange < contact.distance(self._nodeId)):
+                        # Since bucket i have lower range than i+1 then we only have to
+                        # check maxRange.
+                        if (self._kbuckets[i].maxRange >= contact.distance(self._nodeId)):
                             # The contact should be putted in the lowest bucket
                             self._kbuckets[i].addContact(contact)
                         else:

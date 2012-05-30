@@ -96,15 +96,12 @@ class KBucket(object):
         """
 
         length = len(self._contacts)
-        if count >= length:
-            return self._contacts
-        else:
-            list = []
-            i = 0
-            while i < count:
-                list.append(self._contacts[i-1])
-                i += 1
-            return list
+        list = []
+        i = 0
+        while i < count and i < length:
+            list.append(self._contacts[i-1])
+            i += 1
+        return list
                 
 
         # Ensuring the invariants (see the docstring), return count (or fewer)
