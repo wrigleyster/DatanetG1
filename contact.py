@@ -101,13 +101,13 @@ class Contact(object):
         # Create a TCP socket to this socket.
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         if timeout:
-            sock.settimeout(timeout)
-        sock.connect((self.ip, self.dht_port))        
+            sock.settimeout(timeout)        
 
         # Send the message as a serialized (pickled) dictionary.
         print("sending " + request.message)
 
         try:
+            sock.connect((self.ip, self.dht_port))
             sock.sendall(pickle.dumps(request))
             data = None
             data = sock.recv(self.MAX_PACKET_SIZE, 10)
