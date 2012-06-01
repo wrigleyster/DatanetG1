@@ -35,11 +35,11 @@ class RoutingTable(object):
 
     def __str__(self):
         
-        out = "routing table"
+        out = "\n--------------\nPrinting routing table"
         for kB in self._kbuckets:
             out += "\n kbucket range [" + str(kB.minRange) + "," + str(kB.maxRange) + "]"
             for c in kB._contacts:
-                out += "\n" + str(c.distance(self._nodeId)) + " == " + str(c.distance(self._nodeId) < kB.maxRange)
+                out += "\nCid = " + str(c.cid) + "\n\tdistance =  " + str(c.distance(self._nodeId))
             out +="\n"
         return out
         
@@ -78,14 +78,16 @@ class RoutingTable(object):
                     print("Splitting a bucket")
                     if (kB.minRange == 0 and kB.maxRange >= 4):
                         self._splitBucket(i)
-                        """
-                        if (self._kbuckets[i].maxRange < contact.cid):
+                        
+                        # Since bucket i have lower range than i+1 then we only have to
+                        # check maxRange.
+                        if (self._kbuckets[i].maxRange > contact.distance(self._nodeId)):
                             # The contact should be putted in the lowest bucket
                             self._kbuckets[i].addContact(contact)
                         else:
                             # The contact should be putted in the heighest bucket
                             self._kbuckets[i+1].addContact(contact)
-                        """
+                        
                             
                     # If it's not possible to split the bucket
                     # ping the last used contacts first.
@@ -98,7 +100,8 @@ class RoutingTable(object):
                             if not c.ping():
                                 # Adding the contact
                                 kB.delContact(c)
-                                kB.addContact(contact)                                
+                                kB.addContact(contact)
+                                return
                         # The contact could not be added to the bucket.                                            
                     return
             i = i+1
@@ -207,8 +210,17 @@ class RoutingTable(object):
         # Resize the range of the current (old) k-bucket.
         oldBucket.maxRange = cutRange
         
-        # Moving contacts from old bucket to new bucket
-        for c in oldBucket._contacts:
+        print("Moving contacts from old bucket to new bucket")
+        
+        print(str(len(oldBucket._contacts)))
+        contacts = oldBucket.getContacts(kademlia_constants.k)
+        print("LENGTH CONTACTS == " + str(len(contacts)))
+
+        for c in contacts:
+            print("-----")
+            print("Distance to nodeId: " + str(c.distance(self._nodeId)))
+            print("Range from " + str(newBucket.minRange) + " to " + str(newBucket.maxRange))
+            print("-->" + str(newBucket.inRange(c.distance(self._nodeId))))
             if newBucket.inRange(c.distance(self._nodeId)):
                 # Finally, copy all nodes that belong to the new k-bucket into it...
                 newBucket.addContact(c)

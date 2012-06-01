@@ -129,7 +129,7 @@ class Contact(object):
         """Send a ping request to this contact.
         """
 
-        message = DHTMesage("PING")
+        message = DHTMessage("PING")
         msg = self.send(message, 1)
         if msg:
             parts = msg.message.split()
