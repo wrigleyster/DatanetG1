@@ -39,15 +39,8 @@ class RoutingTable(object):
         for kB in self._kbuckets:
             out += "\n kbucket range [" + str(kB.minRange) + "," + str(kB.maxRange) + "]"
             for c in kB._contacts:
-                out += "\nCid = " + str(c.cid) + "\n\tdistance =  " + str(c.distance(self._nodeId))
+                out += "\nCid = " + str(c.cid) + "\n\tdistance =  " + str(c.distance(self._nodeId)) + "\n\tIn range = " + str(kB.inRange(c.distance(self._nodeId)))
             out +="\n"
-        return out
-        
-               
-        out = "---ROUTING TABLE---"
-        for kB in self._kbuckets:
-            out = out + "\n" + kB.__str__() + "\n"
-
         return out
 
     def addContact(self, contact):
