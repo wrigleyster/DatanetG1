@@ -110,13 +110,13 @@ class KBucket(object):
         # Ensuring the invariants (see the docstring), return count (or fewer)
         # contacts from this kbucket.
 
-    def inRange(self, distance):
+    def inRange(self, contactId):
         """Determine if the contactId is inside the range of this bucket.
 
         The contactId should be of type long.
         """
 
-        if type(distance) == type(0L):
+        if type(contactId) == type(0L):
             if contactId >= self.minRange and contactId <= self.maxRange:
                 return True
             else:

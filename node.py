@@ -81,8 +81,6 @@ class Node(object):
             try:
                 data = conn.recv(kademlia_constants.MAX_PACKET_SIZE)
                 message = pickle.loads(data)
-                if message.contact:
-                    self.addContact(message.contact)
                 parts = message.message.split()
                 if parts[0] == "PING":
                     print("PING from " + str(message.contact.cid))
@@ -90,7 +88,7 @@ class Node(object):
                     conn.sendall(pickle.dumps(response))
                 elif parts[0] == "LOOKUP":
                     if len(parts) <= 1:
-                        return                        
+                        return
                     contact = self._routing_table.getContact(long(parts[1]))
                     if contact:
                         response = DHTMessage("VALUE", contact)
@@ -101,7 +99,8 @@ class Node(object):
                         conn.sendall(pickle.dumps(response))
                 elif parts[0] == "LEAVE":
                     self.delContact(message.contact)
-                    
+                if message.contact:
+                    self.addContact(message.contact)                    
             except Exception as e:
                 print e
             conn.close()
