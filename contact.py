@@ -106,23 +106,24 @@ class Contact(object):
 
         # Send the message as a serialized (pickled) dictionary.
         print("sending " + request.message)
-        sock.sendall(pickle.dumps(request))
 
-        # Wait for a response.
-        data = None
         try:
-            data = sock.recv(self.MAX_PACKET_SIZE)
-            msg = pickle.loads(data)
-            print("_send received " + msg.message)
-            return msg
+            sock.sendall(pickle.dumps(request))
+            data = None
+            data = sock.recv(self.MAX_PACKET_SIZE, 10)
+            if data:
+                msg = pickle.loads(data)
+                print("_send received " + msg.message)
+                return msg
+            else:
+                return None
         except Exception as e:
-            print e
             return None
         sock.close()
 
+        # Wait for a response.
         # Upon response deserialize the result (unpickle) and return the
-        # dictionary.
-            
+        # dictionary.     
         # When an exception is thrown return None.
 
     def ping(self):

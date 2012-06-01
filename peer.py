@@ -388,14 +388,17 @@ class ChatPeer:
         # listening socket perform the LEAVE protocol.
         
         for sock, nick in self.socks2names.copy().iteritems():
-            sock.sendall("LEAVE " + self.nickname)
-            data = self.get_data(sock, True, self.TIMEOUT_L)
-            if data:
-                self.parse_and_print(data, sock)
-                sock.close()
-            else:
-                print("Response from " + nick + " timed out")
-                sock.close()
+            try:
+                sock.sendall("LEAVE " + self.nickname)
+                data = self.get_data(sock, True, self.TIMEOUT_L)
+                if data:
+                    self.parse_and_print(data, sock)
+                else:
+                    print("Response from " + nick + " timed out")
+            except Exception as e:
+                print(nick + " did not respond, closing connection")
+            sock.close()
+                
 
         self.node.leaveDHTNetwork()
 

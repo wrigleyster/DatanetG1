@@ -201,7 +201,7 @@ class RoutingTable(object):
 
         # Minimum range is always 0. There fore the "cut range" will be
         # 2**(log2(maxRange)/2)      
-        cutRange = 2**int(math.log(oldBucket.maxRange, 2)/2)
+        cutRange = oldBucket.maxRange/2
 
         # Create a new k-bucket to cover the range split off from the old
         # bucket.
